@@ -37,6 +37,7 @@ namespace AutoSchedule
         List<Models.EnrichedAcademicPlan> enrichedPlans = new List<Models.EnrichedAcademicPlan>();
         List<Models.Student> students = new List<Models.Student>();
         // ------------------------------
+        Services.AssignmentPool globalPool = new Services.AssignmentPool();
 
         public Form1()
         {
@@ -125,16 +126,26 @@ namespace AutoSchedule
                 Services.DataMappingService mappingService = new Services.DataMappingService(groups, subjects, teachers);
                 enrichedPlans = mappingService.MapAcademicPlans(academicPlans);
 
+                // --- УПРАВЛЕНИЕ СОСТОЯНИЕМ (STATE MANAGEMENT) ---
+                globalPool.Initialize(enrichedPlans);
+                int totalCardsGenerated = globalPool.GetAvailableItems().Count;
+
                 // Давай заодно проверим, сработала ли связь, добавив вывод в MessageBox
                 int testLinkedCount = enrichedPlans.Count(p => p.Subject != null);
                 // Для проверки выведем небольшое сообщение (потом его можно убрать)
+                // Формируем подробный отчет
                 MessageBox.Show(
-                    $"База успешно загружена!\n" +
-                    $"Аудиторий: {classrooms.Count}\n" +
+                    $"База данных успешно загружена и обработана!\n\n" +
+                    $"--- Базовая статистика ---\n" +
+                    $"Групп: {groups.Count}\n" +
                     $"Преподавателей: {teachers.Count}\n" +
-                    $"Групп: {groups.Count}"+
-                    $"Связанных планов: {testLinkedCount}",
-                    "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    $"Аудиторий: {classrooms.Count}\n" +
+                    $"Предметов: {subjects.Count}\n" +
+                    $"Строк плана: {academicPlans.Count}\n\n" +
+                    $"--- Готовность к расписанию ---\n" +
+                    $"Успешно связано планов: {testLinkedCount}\n" +
+                    $"Сгенерировано карточек занятий (пул): {totalCardsGenerated}",
+                    "Отчет о загрузке", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

@@ -74,6 +74,7 @@
     <Compile Include="Models\TeacherRoomPref.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\AssignmentPool.cs" />
     <Compile Include="Services\DataMappingService.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
