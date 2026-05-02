@@ -67,7 +67,9 @@
     <Compile Include="Models\SessionSetting.cs" />
     <Compile Include="Models\Subjectcs.cs" />
     <Compile Include="Models\Teacher.cs" />
+    <Compile Include="Models\TeacherAvailability.cs" />
     <Compile Include="Models\TeacherDayOff.cs" />
+    <Compile Include="Models\TeacherRoomPref.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">

@@ -282,5 +282,57 @@ namespace AutoSchedule
             }
             return sessionSchedules;
         }
+
+        public List<TeacherAvailability> GetTeacherAvailability()
+        {
+            List<TeacherAvailability> availabilities = new List<TeacherAvailability>();
+            using (OleDbConnection connection = new OleDbConnection(connectionString))
+            {
+                string query = "SELECT * FROM TeacherAvailability";
+                OleDbCommand command = new OleDbCommand(query, connection);
+                connection.Open();
+                using (OleDbDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        availabilities.Add(new TeacherAvailability
+                        {
+                            Id = SafeGetInt(reader["Код"]),
+                            TeacherID = SafeGetInt(reader["TeacherID"]),
+                            DayIdx = SafeGetString(reader["DayIdx"]),
+                            PairIdx = SafeGetString(reader["PairIdx"]),
+                            IsAvailable = SafeGetBool(reader["IsAvailable"])
+                        });
+                    }
+                }
+            }
+            return availabilities;
+        }
+
+        public List<TeacherRoomPref> GetTeacherRoomPrefs()
+        {
+            List<TeacherRoomPref> prefs = new List<TeacherRoomPref>();
+            using (OleDbConnection connection = new OleDbConnection(connectionString))
+            {
+                string query = "SELECT * FROM TeacherRoomPrefs";
+                OleDbCommand command = new OleDbCommand(query, connection);
+                connection.Open();
+                using (OleDbDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        prefs.Add(new TeacherRoomPref
+                        {
+                            Id = SafeGetInt(reader["Код"]),
+                            TeacherID = SafeGetInt(reader["TeacherID"]),
+                            // Обрати внимание: читаем поле "RoomNumber", но сохраняем в свойство "RoomID" для ясности
+                            RoomID = SafeGetInt(reader["RoomNumber"]),
+                            Priority = SafeGetInt(reader["Priority"])
+                        });
+                    }
+                }
+            }
+            return prefs;
+        }
     }
 }

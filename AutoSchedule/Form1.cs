@@ -32,6 +32,8 @@ namespace AutoSchedule
         List<Models.Schedule> schedules = new List<Models.Schedule>();
         List<Models.SessionSetting> sessionSettings = new List<Models.SessionSetting>();
         List<Models.SessionSchedule> sessionSchedules = new List<Models.SessionSchedule>();
+        List<Models.TeacherAvailability> teacherAvailabilities = new List<Models.TeacherAvailability>();
+        List<Models.TeacherRoomPref> teacherRoomPrefs = new List<Models.TeacherRoomPref>();
         // ------------------------------
 
         public Form1()
@@ -114,6 +116,8 @@ namespace AutoSchedule
                 schedules = dbManager.GetSchedules();
                 sessionSettings = dbManager.GetSessionSettings();
                 sessionSchedules = dbManager.GetSessionSchedules();
+                teacherAvailabilities = dbManager.GetTeacherAvailability();
+                teacherRoomPrefs = dbManager.GetTeacherRoomPrefs();
 
                 // Для проверки выведем небольшое сообщение (потом его можно убрать)
                 MessageBox.Show(
