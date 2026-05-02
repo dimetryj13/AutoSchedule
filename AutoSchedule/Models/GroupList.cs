@@ -1,17 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AutoSchedule.Models
 {
     public class GroupList
     {
-        public int Id { get; set; }               // Счетчик (В БД поле называется «Код»)
-        public string GroupName { get; set; }     // Короткий текст (Название группы)
-        public int StudentCount { get; set; }     // Числовой (Количество студентов)
-        public bool IsFullTime { get; set; }      // Логический (Очная или заочная)
-        public bool Actually { get; set; }        // Логический (Актуальна ли группа)
+        public int GroupId { get; set; }
+        public string GroupName { get; set; }
+        public int StudentCount { get; set; }
+        public bool IsFullTime { get; set; }
+        public bool Actually { get; set; }
+        public int MainTeacher { get; set; } // Куратор
+        public int YearLearn { get; set; }   // Год начала обучения
     }
 }

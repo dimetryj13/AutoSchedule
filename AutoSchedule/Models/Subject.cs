@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AutoSchedule.Models
 {
@@ -11,5 +7,7 @@ namespace AutoSchedule.Models
         public int SubjectID { get; set; }
         public string SubjectName { get; set; }
         public bool RequiresComputers { get; set; }
+        public string FixedRoom { get; set; }      // Закрепленная аудитория
+        public string ForbiddenRoom { get; set; }  // Запрещенная аудитория
     }
 }

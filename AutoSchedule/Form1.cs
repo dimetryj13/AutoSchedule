@@ -34,6 +34,8 @@ namespace AutoSchedule
         List<Models.SessionSchedule> sessionSchedules = new List<Models.SessionSchedule>();
         List<Models.TeacherAvailability> teacherAvailabilities = new List<Models.TeacherAvailability>();
         List<Models.TeacherRoomPref> teacherRoomPrefs = new List<Models.TeacherRoomPref>();
+        List<Models.EnrichedAcademicPlan> enrichedPlans = new List<Models.EnrichedAcademicPlan>();
+        List<Models.Student> students = new List<Models.Student>();
         // ------------------------------
 
         public Form1()
@@ -119,12 +121,19 @@ namespace AutoSchedule
                 teacherAvailabilities = dbManager.GetTeacherAvailability();
                 teacherRoomPrefs = dbManager.GetTeacherRoomPrefs();
 
+                // --- СВЯЗЫВАНИЕ ДАННЫХ (DATA MAPPING) ---
+                Services.DataMappingService mappingService = new Services.DataMappingService(groups, subjects, teachers);
+                enrichedPlans = mappingService.MapAcademicPlans(academicPlans);
+
+                // Давай заодно проверим, сработала ли связь, добавив вывод в MessageBox
+                int testLinkedCount = enrichedPlans.Count(p => p.Subject != null);
                 // Для проверки выведем небольшое сообщение (потом его можно убрать)
                 MessageBox.Show(
                     $"База успешно загружена!\n" +
                     $"Аудиторий: {classrooms.Count}\n" +
                     $"Преподавателей: {teachers.Count}\n" +
-                    $"Групп: {groups.Count}",
+                    $"Групп: {groups.Count}"+
+                    $"Связанных планов: {testLinkedCount}",
                     "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

@@ -1,16 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AutoSchedule.Models
 {
     public class TeacherRoomPref
     {
-        public int Id { get; set; }           // Поле "Код" в БД
+        public int Id { get; set; }
         public int TeacherID { get; set; }
-        public int RoomID { get; set; }       // В БД поле называется "RoomNumber", но хранит числовой ID
-        public int Priority { get; set; }
+        public int RoomID { get; set; }
+        public int Priority { get; set; } // ВЕРНУЛИ int, так как в базе это число 0-3
     }
 }
