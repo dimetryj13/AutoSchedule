@@ -8,7 +8,7 @@ namespace AutoSchedule.Models
 {
     public class TeacherAvailability
     {
-        public int Id { get; set; }           // Поле "Код" в БД
+        public int TeacherAvailabilityId { get; set; }           // Поле "Код" в БД
         public int TeacherID { get; set; }
         public string DayIdx { get; set; }
         public string PairIdx { get; set; }

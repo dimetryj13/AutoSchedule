@@ -109,7 +109,7 @@ namespace AutoSchedule
                         daysOff.Add(new TeacherDayOff
                         {
                             // Читаем Id и английские названия дней
-                            Id = SafeGetInt(reader["Id"]),
+                            TeacherDayOffId = SafeGetInt(reader["TeacherDayOffId"]),
                             TeacherID = SafeGetInt(reader["TeacherName"]),
                             Mon = SafeGetBool(reader["Mon"]),
                             Tue = SafeGetBool(reader["Tue"]),
@@ -138,7 +138,7 @@ namespace AutoSchedule
                     {
                         prefs.Add(new TeacherRoomPref
                         {
-                            Id = SafeGetInt(reader["Id"]),
+                            TeacherRoomPrefId = SafeGetInt(reader["TeacherRoomPrefId"]),
                             TeacherID = SafeGetInt(reader["TeacherID"]),
                             RoomID = SafeGetInt(reader["RoomNumber"]),
                             // Снова используем SafeGetInt для приоритета
@@ -165,7 +165,7 @@ namespace AutoSchedule
                         availabilities.Add(new TeacherAvailability
                         {
                             // Читаем Id вместо "Код"
-                            Id = SafeGetInt(reader["Id"]),
+                            TeacherAvailabilityId = SafeGetInt(reader["TeacherAvailabilityId"]),
                             TeacherID = SafeGetInt(reader["TeacherID"]),
                             DayIdx = SafeGetString(reader["DayIdx"]),
                             PairIdx = SafeGetString(reader["PairIdx"]),
@@ -245,14 +245,14 @@ namespace AutoSchedule
                             PlanID = SafeGetInt(reader["PlanID"]),
                             GroupID = SafeGetString(reader["GroupID"]),
                             SubjectID = SafeGetInt(reader["SubjectID"]),
-                            Hours = SafeGetInt(reader["Часы"]),
-                            LectureInWeek = SafeGetInt(reader["Лекции в неделю"]),
-                            LabsInWeek = SafeGetInt(reader["Лабораторные работы в неделю"]),
-                            PracticeInWeek = SafeGetInt(reader["Практические занятия в неделю"]),
-                            FinalControlID = SafeGetInt(reader["ControlID"]),
+                            Hours = SafeGetInt(reader["Hours"]),
+                            LectureInWeek = SafeGetInt(reader["LectureInWeek"]),
+                            LabsInWeek = SafeGetInt(reader["LabsInWeek"]),
+                            PracticeInWeek = SafeGetInt(reader["PracticeInWeek"]),
+                            FinalControlID = SafeGetInt(reader["FinalControlID"]),
                             LectureTeacher = SafeGetInt(reader["LectureTeacher"]),
                             PracticeTeacher = SafeGetInt(reader["PracticeTeacher"]),
-                            Semester = SafeGetInt(reader["Семестр"]),
+                            Semester = SafeGetInt(reader["Semester"]),
                         });
                     }
                 }

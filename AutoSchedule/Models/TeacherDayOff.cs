@@ -8,7 +8,7 @@ namespace AutoSchedule.Models
 {
     public class TeacherDayOff
     {
-        public int Id { get; set; } // В БД поле «Код»
+        public int TeacherDayOffId { get; set; } // В БД поле «Код»
         public int TeacherID { get; set; } // В БД поле «TeacherName» с числовым типом
         public bool Mon { get; set; }
         public bool Tue { get; set; }
