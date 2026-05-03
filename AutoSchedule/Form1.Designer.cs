@@ -28,118 +28,116 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.btnLeft = new System.Windows.Forms.Button();
-            this.btnRight = new System.Windows.Forms.Button();
-            this.btnCreate = new System.Windows.Forms.Button();
-            this.btnBrowse = new System.Windows.Forms.Button();
-            this.panelRecent = new System.Windows.Forms.Panel();
-            this.button1 = new System.Windows.Forms.Button();
-            this.btnViewAll = new System.Windows.Forms.Button();
-            this.panelRecent.SuspendLayout();
+            this.tlpMainLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.flpAssignments = new System.Windows.Forms.FlowLayoutPanel();
+            this.pnlScheduleContainer = new System.Windows.Forms.Panel();
+            this.flpRoomIndicators = new System.Windows.Forms.FlowLayoutPanel();
+            this.pnlToolbar = new System.Windows.Forms.Panel();
+            this.btnOpenDb = new System.Windows.Forms.Button();
+            this.tlpMainLayout.SuspendLayout();
+            this.pnlToolbar.SuspendLayout();
             this.SuspendLayout();
             // 
-            // btnLeft
+            // tlpMainLayout
             // 
-            this.btnLeft.Location = new System.Drawing.Point(16, 37);
-            this.btnLeft.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.btnLeft.Name = "btnLeft";
-            this.btnLeft.Size = new System.Drawing.Size(29, 87);
-            this.btnLeft.TabIndex = 0;
-            this.btnLeft.Text = "<";
-            this.btnLeft.UseVisualStyleBackColor = true;
-            this.btnLeft.Click += new System.EventHandler(this.btnLeft_Click);
+            this.tlpMainLayout.ColumnCount = 2;
+            this.tlpMainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 19F));
+            this.tlpMainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 81F));
+            this.tlpMainLayout.Controls.Add(this.flpAssignments, 0, 0);
+            this.tlpMainLayout.Controls.Add(this.pnlScheduleContainer, 1, 1);
+            this.tlpMainLayout.Controls.Add(this.flpRoomIndicators, 1, 2);
+            this.tlpMainLayout.Controls.Add(this.pnlToolbar, 1, 0);
+            this.tlpMainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpMainLayout.Location = new System.Drawing.Point(0, 0);
+            this.tlpMainLayout.Name = "tlpMainLayout";
+            this.tlpMainLayout.RowCount = 3;
+            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14F));
+            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 79F));
+            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.tlpMainLayout.Size = new System.Drawing.Size(800, 450);
+            this.tlpMainLayout.TabIndex = 0;
+            this.tlpMainLayout.Paint += new System.Windows.Forms.PaintEventHandler(this.tlpMainLayout_Paint);
             // 
-            // btnRight
+            // flpAssignments
             // 
-            this.btnRight.Location = new System.Drawing.Point(755, 37);
-            this.btnRight.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.btnRight.Name = "btnRight";
-            this.btnRight.Size = new System.Drawing.Size(29, 87);
-            this.btnRight.TabIndex = 1;
-            this.btnRight.Text = ">";
-            this.btnRight.UseVisualStyleBackColor = true;
+            this.flpAssignments.AutoScroll = true;
+            this.flpAssignments.BackColor = System.Drawing.SystemColors.ControlLight;
+            this.flpAssignments.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.flpAssignments.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flpAssignments.Location = new System.Drawing.Point(10, 10);
+            this.flpAssignments.Margin = new System.Windows.Forms.Padding(10);
+            this.flpAssignments.Name = "flpAssignments";
+            this.tlpMainLayout.SetRowSpan(this.flpAssignments, 3);
+            this.flpAssignments.Size = new System.Drawing.Size(132, 430);
+            this.flpAssignments.TabIndex = 0;
             // 
-            // btnCreate
+            // pnlScheduleContainer
             // 
-            this.btnCreate.Font = new System.Drawing.Font("Microsoft Sans Serif", 6.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.btnCreate.Location = new System.Drawing.Point(53, 50);
-            this.btnCreate.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.btnCreate.Name = "btnCreate";
-            this.btnCreate.Size = new System.Drawing.Size(71, 59);
-            this.btnCreate.TabIndex = 2;
-            this.btnCreate.Text = "Создать";
-            this.btnCreate.UseVisualStyleBackColor = true;
-            this.btnCreate.Click += new System.EventHandler(this.btnCreate_Click);
+            this.pnlScheduleContainer.BackColor = System.Drawing.SystemColors.Window;
+            this.pnlScheduleContainer.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlScheduleContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlScheduleContainer.Location = new System.Drawing.Point(155, 66);
+            this.pnlScheduleContainer.Name = "pnlScheduleContainer";
+            this.pnlScheduleContainer.Size = new System.Drawing.Size(642, 349);
+            this.pnlScheduleContainer.TabIndex = 1;
             // 
-            // btnBrowse
+            // flpRoomIndicators
             // 
-            this.btnBrowse.Font = new System.Drawing.Font("Microsoft Sans Serif", 6.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.btnBrowse.Location = new System.Drawing.Point(676, 50);
-            this.btnBrowse.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.btnBrowse.Name = "btnBrowse";
-            this.btnBrowse.Size = new System.Drawing.Size(71, 59);
-            this.btnBrowse.TabIndex = 3;
-            this.btnBrowse.Text = "Выбрать";
-            this.btnBrowse.UseVisualStyleBackColor = true;
-            this.btnBrowse.Click += new System.EventHandler(this.btnBrowse_Click);
+            this.flpRoomIndicators.AutoScroll = true;
+            this.flpRoomIndicators.BackColor = System.Drawing.SystemColors.WindowFrame;
+            this.flpRoomIndicators.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.flpRoomIndicators.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flpRoomIndicators.Location = new System.Drawing.Point(155, 421);
+            this.flpRoomIndicators.Name = "flpRoomIndicators";
+            this.flpRoomIndicators.Padding = new System.Windows.Forms.Padding(10);
+            this.flpRoomIndicators.Size = new System.Drawing.Size(642, 26);
+            this.flpRoomIndicators.TabIndex = 2;
             // 
-            // panelRecent
+            // pnlToolbar
             // 
-            this.panelRecent.Controls.Add(this.button1);
-            this.panelRecent.Location = new System.Drawing.Point(132, 37);
-            this.panelRecent.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.panelRecent.Name = "panelRecent";
-            this.panelRecent.Size = new System.Drawing.Size(536, 87);
-            this.panelRecent.TabIndex = 4;
+            this.pnlToolbar.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlToolbar.Controls.Add(this.btnOpenDb);
+            this.pnlToolbar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlToolbar.Location = new System.Drawing.Point(155, 3);
+            this.pnlToolbar.Name = "pnlToolbar";
+            this.pnlToolbar.Size = new System.Drawing.Size(642, 57);
+            this.pnlToolbar.TabIndex = 3;
             // 
-            // button1
+            // btnOpenDb
             // 
-            this.button1.Location = new System.Drawing.Point(0, 0);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 0;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            // 
-            // btnViewAll
-            // 
-            this.btnViewAll.Location = new System.Drawing.Point(664, 6);
-            this.btnViewAll.Name = "btnViewAll";
-            this.btnViewAll.Size = new System.Drawing.Size(120, 24);
-            this.btnViewAll.TabIndex = 5;
-            this.btnViewAll.Text = "Все базы";
-            this.btnViewAll.UseVisualStyleBackColor = true;
-            this.btnViewAll.Click += new System.EventHandler(this.btnViewAll_Click);
+            this.btnOpenDb.Location = new System.Drawing.Point(3, -1);
+            this.btnOpenDb.Name = "btnOpenDb";
+            this.btnOpenDb.Size = new System.Drawing.Size(75, 23);
+            this.btnOpenDb.TabIndex = 0;
+            this.btnOpenDb.Text = "button1";
+            this.btnOpenDb.UseVisualStyleBackColor = true;
+            this.btnOpenDb.Click += new System.EventHandler(this.btnOpenDb_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Controls.Add(this.btnViewAll);
-            this.Controls.Add(this.panelRecent);
-            this.Controls.Add(this.btnBrowse);
-            this.Controls.Add(this.btnCreate);
-            this.Controls.Add(this.btnRight);
-            this.Controls.Add(this.btnLeft);
+            this.Controls.Add(this.tlpMainLayout);
             this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.Name = "Form1";
             this.Text = "Form1";
+            this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.Load += new System.EventHandler(this.Form1_Load);
-            this.panelRecent.ResumeLayout(false);
+            this.tlpMainLayout.ResumeLayout(false);
+            this.pnlToolbar.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
 
         #endregion
 
-        private System.Windows.Forms.Button btnLeft;
-        private System.Windows.Forms.Button btnRight;
-        private System.Windows.Forms.Button btnCreate;
-        private System.Windows.Forms.Button btnBrowse;
-        private System.Windows.Forms.Panel panelRecent;
-        private System.Windows.Forms.Button button1;
-        private System.Windows.Forms.Button btnViewAll;
+        private System.Windows.Forms.TableLayoutPanel tlpMainLayout;
+        private System.Windows.Forms.FlowLayoutPanel flpAssignments;
+        private System.Windows.Forms.Panel pnlScheduleContainer;
+        private System.Windows.Forms.FlowLayoutPanel flpRoomIndicators;
+        private System.Windows.Forms.Panel pnlToolbar;
+        private System.Windows.Forms.Button btnOpenDb;
     }
 }
 

@@ -46,6 +46,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controls\ScheduleCardControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\ScheduleCardControl.Designer.cs">
+      <DependentUpon>ScheduleCardControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="DatabaseManager.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
@@ -76,6 +82,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\AssignmentPool.cs" />
     <Compile Include="Services\DataMappingService.cs" />
+    <Compile Include="Services\ValidationService.cs" />
+    <EmbeddedResource Include="Controls\ScheduleCardControl.resx">
+      <DependentUpon>ScheduleCardControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
