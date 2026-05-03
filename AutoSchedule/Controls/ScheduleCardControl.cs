@@ -81,21 +81,31 @@ namespace AutoSchedule.Controls
             this.Region = new Region(path);
         }
 
+        // --- ДАЕМ ДОСТУП К ДАННЫМ ДЛЯ ГЛАВНОЙ ФОРМЫ ---
+        public IReadOnlyList<Classroom> AvailableRooms => _availableRooms;
+        public HashSet<int> PriorityRoomIds => _priorityRoomIds;
+        public Classroom SelectedRoom => (_currentRoomIndex >= 0 && _currentRoomIndex < _availableRooms.Count) ? _availableRooms[_currentRoomIndex] : null;
+
         public void LoadRooms(List<Classroom> allRooms, List<int> priorityRoomIds)
         {
-            _availableRooms = allRooms;
             _priorityRoomIds = new HashSet<int>(priorityRoomIds);
+
+            // СОРТИРОВКА: Сначала приоритетные, затем по длине названия (чтобы "2" было перед "10"), затем по алфавиту
+            _availableRooms = allRooms
+                .OrderByDescending(r => _priorityRoomIds.Contains(r.RoomID))
+                .ThenBy(r => r.RoomNumber.Length)
+                .ThenBy(r => r.RoomNumber)
+                .ToList();
 
             if (_priorityRoomIds.Count > 3) _currentRoomIndex = -2;
             else if (_priorityRoomIds.Count == 0) _currentRoomIndex = -1;
             else if (_availableRooms.Count > 0)
             {
-                var firstPriority = _availableRooms.FirstOrDefault(r => _priorityRoomIds.Contains(r.RoomID));
-                _currentRoomIndex = firstPriority != null ? _availableRooms.IndexOf(firstPriority) : -1;
+                // Так как приоритетные теперь 100% стоят в самом начале списка (индекс 0), мы просто выбираем первую
+                _currentRoomIndex = 0;
             }
             this.Invalidate();
         }
-
         private void ScheduleCardControl_MouseWheel(object sender, MouseEventArgs e)
         {
             if (_availableRooms.Count == 0) return;

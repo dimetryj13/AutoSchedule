@@ -51,9 +51,9 @@
             this.tlpMainLayout.Location = new System.Drawing.Point(0, 0);
             this.tlpMainLayout.Name = "tlpMainLayout";
             this.tlpMainLayout.RowCount = 3;
-            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14F));
-            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 79F));
-            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 13F));
+            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 78F));
+            this.tlpMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 9F));
             this.tlpMainLayout.Size = new System.Drawing.Size(800, 450);
             this.tlpMainLayout.TabIndex = 0;
             this.tlpMainLayout.Paint += new System.Windows.Forms.PaintEventHandler(this.tlpMainLayout_Paint);
@@ -76,9 +76,9 @@
             this.pnlScheduleContainer.BackColor = System.Drawing.SystemColors.Window;
             this.pnlScheduleContainer.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.pnlScheduleContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlScheduleContainer.Location = new System.Drawing.Point(155, 66);
+            this.pnlScheduleContainer.Location = new System.Drawing.Point(155, 61);
             this.pnlScheduleContainer.Name = "pnlScheduleContainer";
-            this.pnlScheduleContainer.Size = new System.Drawing.Size(642, 349);
+            this.pnlScheduleContainer.Size = new System.Drawing.Size(642, 345);
             this.pnlScheduleContainer.TabIndex = 1;
             // 
             // flpRoomIndicators
@@ -87,10 +87,10 @@
             this.flpRoomIndicators.BackColor = System.Drawing.SystemColors.WindowFrame;
             this.flpRoomIndicators.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.flpRoomIndicators.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.flpRoomIndicators.Location = new System.Drawing.Point(155, 421);
+            this.flpRoomIndicators.Location = new System.Drawing.Point(155, 412);
             this.flpRoomIndicators.Name = "flpRoomIndicators";
             this.flpRoomIndicators.Padding = new System.Windows.Forms.Padding(10);
-            this.flpRoomIndicators.Size = new System.Drawing.Size(642, 26);
+            this.flpRoomIndicators.Size = new System.Drawing.Size(642, 35);
             this.flpRoomIndicators.TabIndex = 2;
             // 
             // pnlToolbar
@@ -100,7 +100,7 @@
             this.pnlToolbar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlToolbar.Location = new System.Drawing.Point(155, 3);
             this.pnlToolbar.Name = "pnlToolbar";
-            this.pnlToolbar.Size = new System.Drawing.Size(642, 57);
+            this.pnlToolbar.Size = new System.Drawing.Size(642, 52);
             this.pnlToolbar.TabIndex = 3;
             // 
             // btnOpenDb

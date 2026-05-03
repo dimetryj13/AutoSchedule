@@ -46,6 +46,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controls\RoomIndicatorControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\RoomIndicatorControl.Designer.cs">
+      <DependentUpon>RoomIndicatorControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Controls\ScheduleCardControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -83,6 +89,9 @@
     <Compile Include="Services\AssignmentPool.cs" />
     <Compile Include="Services\DataMappingService.cs" />
     <Compile Include="Services\ValidationService.cs" />
+    <EmbeddedResource Include="Controls\RoomIndicatorControl.resx">
+      <DependentUpon>RoomIndicatorControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Controls\ScheduleCardControl.resx">
       <DependentUpon>ScheduleCardControl.cs</DependentUpon>
     </EmbeddedResource>

@@ -26,6 +26,8 @@ namespace AutoSchedule
         List<Schedule> schedules = new List<Schedule>();
         List<TeacherRoomPref> teacherRoomPrefs = new List<TeacherRoomPref>();
         List<EnrichedAcademicPlan> enrichedPlans = new List<EnrichedAcademicPlan>();
+        // Словарь для связи ID аудитории с её визуальным индикатором
+        private Dictionary<int, Controls.RoomIndicatorControl> _roomIndicators = new Dictionary<int, Controls.RoomIndicatorControl>();
 
         // Сервисы
         AssignmentPool globalPool = new AssignmentPool();
@@ -79,6 +81,7 @@ namespace AutoSchedule
                 PopulateAssignmentCards();
 
                 int totalCards = globalPool.GetAvailableItems().Count;
+                // --- ВИЗУАЛИЗАЦИЯ: Выводим индикаторы аудиторий вниз ---
                 MessageBox.Show($"База загружена. Сгенерировано карточек: {totalCards}");
             }
             catch (Exception ex)
@@ -131,8 +134,29 @@ namespace AutoSchedule
                     .ToList();
 
                 card.LoadRooms(classrooms, priorityRoomIds);
+                // --- ДОБАВЛЯЕМ ПОДПИСКУ НА СОБЫТИЕ ---
+                card.LoadRooms(classrooms, priorityRoomIds);
                 flpAssignments.Controls.Add(card);
 
+                // --- НОВАЯ ДИНАМИЧЕСКАЯ ПРИВЯЗКА СОБЫТИЙ ---
+
+                // При наведении мыши — заполняем нижнюю панель аудиториями этой карточки
+                card.MouseEnter += (s, e) => { ShowRoomsForCard(card); };
+
+                // При уходе мыши — стираем все из нижней панели
+                card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
+
+                // При прокрутке колесика — бегаем синей рамкой по списку внизу
+                card.RoomSelectionChanged += (s, selectedRoom) =>
+                {
+                    foreach (var indicator in _roomIndicators.Values) indicator.Highlight(false);
+                    if (selectedRoom != null && _roomIndicators.ContainsKey(selectedRoom.RoomID))
+                    {
+                        var activeIndicator = _roomIndicators[selectedRoom.RoomID];
+                        activeIndicator.Highlight(true);
+                        flpRoomIndicators.ScrollControlIntoView(activeIndicator); // Авто-скролл карусели
+                    }
+                };
                 // Двигаем прогресс-бар
                 pb.Value++;
 
@@ -170,5 +194,55 @@ namespace AutoSchedule
                 LoadDatabaseData(selectedPath);
             }
         }
+        // Показывает индикаторы только для наведенной карточки
+        // Показывает индикаторы только для наведенной карточки
+        private void ShowRoomsForCard(Controls.ScheduleCardControl card)
+        {
+            flpRoomIndicators.SuspendLayout();
+            flpRoomIndicators.Controls.Clear();
+            _roomIndicators.Clear();
+
+            flpRoomIndicators.WrapContents = false;
+
+            // --- УМНАЯ ВЫСОТА КНОПОК ---
+            // Узнаем стандартную высоту горизонтального ползунка в Windows (обычно около 17px)
+            int scrollBarHeight = SystemInformation.HorizontalScrollBarHeight;
+
+            // Вычисляем идеальную высоту: Высота панели минус скроллбар минус отступы сверху/снизу (около 15px)
+            int targetHeight = flpRoomIndicators.Height - scrollBarHeight - 15;
+
+            // Защита: если панель слишком сильно сплющили, задаем минимальную высоту, чтобы текст не исчез
+            if (targetHeight < 25) targetHeight = 25;
+
+            foreach (var room in card.AvailableRooms)
+            {
+                bool isPriority = card.PriorityRoomIds.Contains(room.RoomID);
+                var indicator = new Controls.RoomIndicatorControl(room, isPriority);
+
+                // Применяем вычисленную высоту к кнопке!
+                indicator.Height = targetHeight;
+
+                _roomIndicators.Add(room.RoomID, indicator);
+                flpRoomIndicators.Controls.Add(indicator);
+            }
+
+            var selected = card.SelectedRoom;
+            if (selected != null && _roomIndicators.ContainsKey(selected.RoomID))
+            {
+                var activeIndicator = _roomIndicators[selected.RoomID];
+                activeIndicator.Highlight(true);
+                flpRoomIndicators.ScrollControlIntoView(activeIndicator);
+            }
+
+            flpRoomIndicators.ResumeLayout();
+        }
+        // Очищает панель
+        private void ClearRoomIndicators()
+        {
+            flpRoomIndicators.Controls.Clear();
+            _roomIndicators.Clear();
+        }
+
+
     }
 }
