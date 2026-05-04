@@ -239,16 +239,12 @@ namespace AutoSchedule
         // --- НОВЫЙ МЕТОД: Генерация главной сетки (Шахматки) ---
         private void GenerateScheduleGrid()
         {
-            // Фильтруем только актуальные группы
-            var activeGroups = groups.Where(g => g.Actually).ToList(); //
+            // Фильтрация актуальных групп
+            var activeGroups = groups.Where(g => g.Actually).ToList();
             if (activeGroups.Count == 0) return;
 
             pnlScheduleContainer.SuspendLayout();
             pnlScheduleContainer.Controls.Clear();
-
-            // Внутри GenerateScheduleGrid, после создания dgvSchedule:
-            dgvSchedule.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            dgvSchedule.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
 
             dgvSchedule = new DataGridView();
             dgvSchedule.Dock = DockStyle.Fill;
@@ -258,50 +254,62 @@ namespace AutoSchedule
             dgvSchedule.AllowDrop = true;
             dgvSchedule.ReadOnly = true;
 
-            // Включаем DoubleBuffering (уже есть в твоем коде через рефлексию)
             SetDoubleBuffered(dgvSchedule);
 
-            // Настройка колонок
             dgvSchedule.Columns.Add("colDay", "День");
-            dgvSchedule.Columns.Add("colPair", "#");
+            dgvSchedule.Columns.Add("colPair", "Пара");
             dgvSchedule.Columns["colDay"].Frozen = true;
             dgvSchedule.Columns["colPair"].Frozen = true;
 
             foreach (var group in activeGroups)
             {
                 int idx = dgvSchedule.Columns.Add($"g_{group.GroupId}", group.GroupName);
-                // ЗАПРЕТ СОРТИРОВКИ (Фото 1 и 2)
                 dgvSchedule.Columns[idx].SortMode = DataGridViewColumnSortMode.NotSortable;
             }
 
-            // Настройка строк (6 дней * 6 пар)
+            // Настройка стилей заголовков (по центру, жирный шрифт)
+            dgvSchedule.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvSchedule.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            dgvSchedule.ColumnHeadersHeight = 40;
+            dgvSchedule.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgvSchedule.EnableHeadersVisualStyles = false;
+
             string[] days = { "ПОНЕДЕЛЬНИК", "ВТОРНИК", "СРЕДА", "ЧЕТВЕРГ", "ПЯТНИЦА", "СУББОТА" };
             for (int d = 0; d < 6; d++)
             {
                 for (int p = 1; p <= 6; p++)
                 {
                     int rowIndex = dgvSchedule.Rows.Add();
+                    dgvSchedule.Rows[rowIndex].Height = 66;
                     dgvSchedule.Rows[rowIndex].Cells["colDay"].Value = days[d];
                     dgvSchedule.Rows[rowIndex].Cells["colPair"].Value = p.ToString();
+
+                    for (int c = 2; c < dgvSchedule.Columns.Count; c++)
+                    {
+                        dgvSchedule.Rows[rowIndex].Cells[c].Style.BackColor = Color.WhiteSmoke;
+                    }
                 }
             }
 
-            // События
+            // Привязка обработчиков событий
             dgvSchedule.CellPainting += DgvSchedule_CellPainting;
             dgvSchedule.Paint += DgvSchedule_Paint;
-            dgvSchedule.MouseWheel += DgvSchedule_MouseWheel; // Для Зума
+            dgvSchedule.MouseWheel += DgvSchedule_MouseWheel;
 
-            ApplyZoom(); // Применяем начальный масштаб
+            // Принудительная перерисовка при прокрутке (устраняет дефекты вертикального текста)
+            dgvSchedule.Scroll += (s, ev) => dgvSchedule.Invalidate();
+
+            ApplyZoom();
 
             pnlScheduleContainer.Controls.Add(dgvSchedule);
             pnlScheduleContainer.ResumeLayout();
         }
-
         // --- ЛОГИКА ЗУМА ---
         private void DgvSchedule_MouseWheel(object sender, MouseEventArgs e)
         {
             if (Control.ModifierKeys == Keys.Control)
             {
+                // Масштабирование
                 if (e.Delta > 0) _zoomLevel += ZOOM_STEP;
                 else _zoomLevel -= ZOOM_STEP;
 
@@ -309,23 +317,27 @@ namespace AutoSchedule
                 ApplyZoom();
                 ((HandledMouseEventArgs)e).Handled = true;
             }
-            // НОВАЯ ЛОГИКА ДЛЯ SHIFT (Горизонтальный скролл)
             else if (Control.ModifierKeys == Keys.Shift)
             {
-                if (e.Delta > 0) // Крутим вверх — скролл влево
+                // Горизонтальная прокрутка
+                if (e.Delta > 0)
                 {
-                    if (dgvSchedule.FirstDisplayedScrollingColumnIndex > 0)
+                    // Ограничение левой границы (индексы 0 и 1 закреплены)
+                    if (dgvSchedule.FirstDisplayedScrollingColumnIndex > 2)
                         dgvSchedule.FirstDisplayedScrollingColumnIndex--;
                 }
-                else // Крутим вниз — скролл вправо
+                else
                 {
-                    if (dgvSchedule.FirstDisplayedScrollingColumnIndex < dgvSchedule.ColumnCount - 1)
+                    // Ограничение правой границы
+                    if (dgvSchedule.FirstDisplayedScrollingColumnIndex >= 2 &&
+                        dgvSchedule.FirstDisplayedScrollingColumnIndex < dgvSchedule.ColumnCount - 1)
+                    {
                         dgvSchedule.FirstDisplayedScrollingColumnIndex++;
+                    }
                 }
                 ((HandledMouseEventArgs)e).Handled = true;
             }
         }
-
         private void ApplyZoom()
         {
             if (dgvSchedule == null) return;
