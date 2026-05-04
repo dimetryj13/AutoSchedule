@@ -36,6 +36,9 @@ namespace AutoSchedule
         public Form1()
         {
             InitializeComponent();
+            SetDoubleBuffered(flpAssignments);
+            SetDoubleBuffered(flpRoomIndicators);
+            SetDoubleBuffered(pnlScheduleContainer);
             // Включаем двойную буферизацию для плавной отрисовки
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer, true);
         }
@@ -81,6 +84,10 @@ namespace AutoSchedule
                 PopulateAssignmentCards();
 
                 int totalCards = globalPool.GetAvailableItems().Count;
+
+                // Генерируем сетку
+                GenerateScheduleGrid();
+
                 // --- ВИЗУАЛИЗАЦИЯ: Выводим индикаторы аудиторий вниз ---
                 MessageBox.Show($"База загружена. Сгенерировано карточек: {totalCards}");
             }
@@ -96,6 +103,11 @@ namespace AutoSchedule
         {
             var availableItems = globalPool.GetAvailableItems();
             if (availableItems.Count == 0) return;
+
+            // Включаем визуальный фидбек
+            flpAssignments.Visible = false; // Прячем панель на время добавления (это КРИТИЧЕСКИ ускоряет WinForms)
+            flpAssignments.SuspendLayout();
+            flpAssignments.Controls.Clear();
 
             // 1. Создаем прогресс-бар и текст программно (по центру шахматки)
             ProgressBar pb = new ProgressBar();
@@ -128,26 +140,22 @@ namespace AutoSchedule
             {
                 var card = new Controls.ScheduleCardControl(item);
 
+                // Подгружаем приоритеты
                 var priorityRoomIds = teacherRoomPrefs
                     .Where(p => p.TeacherID == item.AssignedTeacher?.TeacherID)
-                    .Select(p => p.RoomID)
-                    .ToList();
+                    .Select(p => p.RoomID).ToList();
 
                 card.LoadRooms(classrooms, priorityRoomIds);
-                // --- ДОБАВЛЯЕМ ПОДПИСКУ НА СОБЫТИЕ ---
-                card.LoadRooms(classrooms, priorityRoomIds);
-                flpAssignments.Controls.Add(card);
 
-                // --- НОВАЯ ДИНАМИЧЕСКАЯ ПРИВЯЗКА СОБЫТИЙ ---
-
-                // При наведении мыши — заполняем нижнюю панель аудиториями этой карточки
+                // События
                 card.MouseEnter += (s, e) => { ShowRoomsForCard(card); };
-
-                // При уходе мыши — стираем все из нижней панели
                 card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
+                card.RoomSelectionChanged += Card_RoomSelectionChanged;
 
-                // При прокрутке колесика — бегаем синей рамкой по списку внизу
-                card.RoomSelectionChanged += (s, selectedRoom) =>
+                flpAssignments.Controls.Add(card);
+            
+            // При прокрутке колесика — бегаем синей рамкой по списку внизу
+            card.RoomSelectionChanged += (s, selectedRoom) =>
                 {
                     foreach (var indicator in _roomIndicators.Values) indicator.Highlight(false);
                     if (selectedRoom != null && _roomIndicators.ContainsKey(selectedRoom.RoomID))
@@ -166,6 +174,7 @@ namespace AutoSchedule
 
             // 4. ВКЛЮЧАЕМ панель обратно (карточки появляются мгновенно все вместе)
             flpAssignments.ResumeLayout();
+            flpAssignments.Visible = true;
 
             // 5. Убираем прогресс-бар после завершения
             pnlScheduleContainer.Controls.Remove(pb);
@@ -243,6 +252,114 @@ namespace AutoSchedule
             _roomIndicators.Clear();
         }
 
+        // --- НОВЫЙ МЕТОД: Генерация главной сетки (Шахматки) ---
+        private void GenerateScheduleGrid()
+        {
+            if (groups == null || groups.Count == 0) return;
+
+            pnlScheduleContainer.SuspendLayout();
+            pnlScheduleContainer.Controls.Clear();
+
+            // 1. Контейнер со скроллом
+            Panel scrollWrapper = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            SetDoubleBuffered(scrollWrapper);
+
+            // 2. Сетка
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top, // Оставляем Top, но будем управлять шириной
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                CellBorderStyle = TableLayoutPanelCellBorderStyle.Single,
+                BackColor = Color.White
+            };
+            SetDoubleBuffered(grid);
+            grid.SuspendLayout();
+
+            int colCount = 2 + groups.Count;
+            grid.ColumnCount = colCount;
+
+            // Настройка столбцов
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40)); // Дни
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 30)); // Номер пары
+
+            // Если групп мало — растягиваем их на весь экран, если много — фиксируем ширину
+            float groupWidth = groups.Count < 5 ? (100f / groups.Count) : 250f;
+            SizeType sType = groups.Count < 5 ? SizeType.Percent : SizeType.Absolute;
+
+            for (int i = 0; i < groups.Count; i++)
+                grid.ColumnStyles.Add(new ColumnStyle(sType, groupWidth));
+
+            // 3. Шапка
+            grid.RowCount = 1;
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            grid.Controls.Add(CreateHeaderLabel("Дни"), 0, 0);
+            grid.Controls.Add(CreateHeaderLabel("#"), 1, 0);
+
+            for (int i = 0; i < groups.Count; i++)
+                grid.Controls.Add(CreateHeaderLabel(groups[i].GroupName), i + 2, 0);
+
+            // 4. Строки (Дни * Пары)
+            string[] days = { "ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ" };
+            int pairsPerDay = 6;
+
+            for (int d = 0; d < days.Length; d++)
+            {
+                for (int p = 0; p < pairsPerDay; p++)
+                {
+                    int rowIndex = grid.RowCount++;
+                    grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
+
+                    if (p == 0)
+                    {
+                        var lblDay = CreateHeaderLabel(days[d]);
+                        grid.Controls.Add(lblDay, 0, rowIndex);
+                        grid.SetRowSpan(lblDay, pairsPerDay);
+                    }
+
+                    grid.Controls.Add(CreateHeaderLabel((p + 1).ToString()), 1, rowIndex);
+
+                    // Ячейки-мишени для Drag-and-Drop
+                    for (int g = 0; g < groups.Count; g++)
+                    {
+                        Panel cell = new Panel
+                        {
+                            Dock = DockStyle.Fill,
+                            Margin = new Padding(1),
+                            BackColor = Color.FromArgb(250, 250, 250),
+                            AllowDrop = true,
+                            Tag = new Tuple<int, int, int>(d + 1, p + 1, groups[g].GroupId)
+                        };
+                        grid.Controls.Add(cell, g + 2, rowIndex);
+                    }
+                }
+            }
+
+            grid.ResumeLayout();
+            scrollWrapper.Controls.Add(grid);
+            pnlScheduleContainer.Controls.Add(scrollWrapper);
+            pnlScheduleContainer.ResumeLayout();
+        }
+
+        // Вспомогательный метод для красивых заголовков
+        private Label CreateHeaderLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                BackColor = Color.FromArgb(240, 240, 240)
+            };
+        }
+        public static void SetDoubleBuffered(Control control)
+        {
+            typeof(Control).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance)
+                ?.SetValue(control, true, null);
+        }
 
     }
 }
