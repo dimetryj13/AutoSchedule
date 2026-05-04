@@ -32,6 +32,27 @@ namespace AutoSchedule
         // Сервисы
         AssignmentPool globalPool = new AssignmentPool();
         ValidationService globalValidator;
+        // Переменная для самой шахматки
+        private DataGridView dgvSchedule;
+
+        // --- ПЕРЕМЕННЫЕ МАСШТАБИРОВАНИЯ ---
+        private float _zoomLevel = 1.0f;
+        private const float ZOOM_STEP = 0.1f;
+        private const float MIN_ZOOM = 0.5f;
+        private const float MAX_ZOOM = 2.0f;
+
+        // Базовые размеры (эталонные)
+        private const int BASE_ROW_HEIGHT = 66;
+        private const int BASE_HEADER_HEIGHT = 40;
+        private const float BASE_FONT_SIZE_DAY = 12f;
+        private const float BASE_FONT_SIZE_PAIR = 12f;
+        private const int BASE_WIDTH_DAY = 40;
+        private const int BASE_WIDTH_PAIR = 30;
+        private const int BASE_WIDTH_GROUP = 250;
+
+        // Кисти для рисования границ ячеек
+        private Pen _gridPen = new Pen(Color.LightGray, 1);
+        private Pen _thickPen = new Pen(Color.Black, 2);
 
         public Form1()
         {
@@ -104,85 +125,48 @@ namespace AutoSchedule
             var availableItems = globalPool.GetAvailableItems();
             if (availableItems.Count == 0) return;
 
-            // Включаем визуальный фидбек
-            flpAssignments.Visible = false; // Прячем панель на время добавления (это КРИТИЧЕСКИ ускоряет WinForms)
-            flpAssignments.SuspendLayout();
-            flpAssignments.Controls.Clear();
-
-            // 1. Создаем прогресс-бар и текст программно (по центру шахматки)
-            ProgressBar pb = new ProgressBar();
-            pb.Style = ProgressBarStyle.Continuous;
-            pb.Maximum = availableItems.Count;
-            pb.Value = 0;
-            pb.Width = 300;
-            pb.Height = 30;
-            // Центрируем по экрану
+            // Создаем и показываем прогресс-бар в центре шахматки
+            ProgressBar pb = new ProgressBar { Maximum = availableItems.Count, Value = 0, Width = 300, Height = 30 };
             pb.Left = (pnlScheduleContainer.Width - pb.Width) / 2;
             pb.Top = (pnlScheduleContainer.Height - pb.Height) / 2;
 
-            Label lbl = new Label();
-            lbl.Text = "Генерация карточек расписания...";
-            lbl.AutoSize = true;
-            lbl.Font = new Font("Segoe UI", 12, FontStyle.Bold);
-            lbl.Left = pb.Left;
-            lbl.Top = pb.Top - 30;
+            Label lbl = new Label { Text = "Загрузка карточек...", AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            lbl.Left = pb.Left; lbl.Top = pb.Top - 25;
 
-            // Добавляем на форму
             pnlScheduleContainer.Controls.Add(pb);
             pnlScheduleContainer.Controls.Add(lbl);
+            pb.BringToFront(); lbl.BringToFront();
 
-            // 2. ОТКЛЮЧАЕМ графическое обновление левой панели для дикой скорости
+            flpAssignments.Visible = false;
             flpAssignments.SuspendLayout();
             flpAssignments.Controls.Clear();
 
-            // 3. Генерируем карточки
             foreach (var item in availableItems)
             {
                 var card = new Controls.ScheduleCardControl(item);
-
-                // Подгружаем приоритеты
                 var priorityRoomIds = teacherRoomPrefs
                     .Where(p => p.TeacherID == item.AssignedTeacher?.TeacherID)
                     .Select(p => p.RoomID).ToList();
 
                 card.LoadRooms(classrooms, priorityRoomIds);
 
-                // События
+                // Подписки на события
                 card.MouseEnter += (s, e) => { ShowRoomsForCard(card); };
                 card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
-                card.RoomSelectionChanged += Card_RoomSelectionChanged;
+                card.RoomSelectionChanged += (s, room) => UpdateRoomHighlight(room);
 
                 flpAssignments.Controls.Add(card);
-            
-            // При прокрутке колесика — бегаем синей рамкой по списку внизу
-            card.RoomSelectionChanged += (s, selectedRoom) =>
-                {
-                    foreach (var indicator in _roomIndicators.Values) indicator.Highlight(false);
-                    if (selectedRoom != null && _roomIndicators.ContainsKey(selectedRoom.RoomID))
-                    {
-                        var activeIndicator = _roomIndicators[selectedRoom.RoomID];
-                        activeIndicator.Highlight(true);
-                        flpRoomIndicators.ScrollControlIntoView(activeIndicator); // Авто-скролл карусели
-                    }
-                };
-                // Двигаем прогресс-бар
-                pb.Value++;
 
-                // Каждые 15 карточек даем интерфейсу "подышать" и перерисоваться
-                if (pb.Value % 15 == 0) Application.DoEvents();
+                pb.Value++;
+                if (pb.Value % 20 == 0) Application.DoEvents();
             }
 
-            // 4. ВКЛЮЧАЕМ панель обратно (карточки появляются мгновенно все вместе)
             flpAssignments.ResumeLayout();
             flpAssignments.Visible = true;
 
-            // 5. Убираем прогресс-бар после завершения
             pnlScheduleContainer.Controls.Remove(pb);
             pnlScheduleContainer.Controls.Remove(lbl);
-            pb.Dispose();
-            lbl.Dispose();
         }
-        // Пустые заглушки для событий, если они остались в дизайнере (чтобы не было ошибок)
         private void tlpMainLayout_Paint(object sender, PaintEventArgs e) { }
 
         private void btnOpenDb_Click(object sender, EventArgs e)
@@ -255,93 +239,114 @@ namespace AutoSchedule
         // --- НОВЫЙ МЕТОД: Генерация главной сетки (Шахматки) ---
         private void GenerateScheduleGrid()
         {
-            if (groups == null || groups.Count == 0) return;
+            // Фильтруем только актуальные группы
+            var activeGroups = groups.Where(g => g.Actually).ToList(); //
+            if (activeGroups.Count == 0) return;
 
             pnlScheduleContainer.SuspendLayout();
             pnlScheduleContainer.Controls.Clear();
 
-            // 1. Контейнер со скроллом
-            Panel scrollWrapper = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            SetDoubleBuffered(scrollWrapper);
+            // Внутри GenerateScheduleGrid, после создания dgvSchedule:
+            dgvSchedule.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvSchedule.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
 
-            // 2. Сетка
-            TableLayoutPanel grid = new TableLayoutPanel
+            dgvSchedule = new DataGridView();
+            dgvSchedule.Dock = DockStyle.Fill;
+            dgvSchedule.AllowUserToAddRows = false;
+            dgvSchedule.RowHeadersVisible = false;
+            dgvSchedule.BackgroundColor = Color.White;
+            dgvSchedule.AllowDrop = true;
+            dgvSchedule.ReadOnly = true;
+
+            // Включаем DoubleBuffering (уже есть в твоем коде через рефлексию)
+            SetDoubleBuffered(dgvSchedule);
+
+            // Настройка колонок
+            dgvSchedule.Columns.Add("colDay", "День");
+            dgvSchedule.Columns.Add("colPair", "#");
+            dgvSchedule.Columns["colDay"].Frozen = true;
+            dgvSchedule.Columns["colPair"].Frozen = true;
+
+            foreach (var group in activeGroups)
             {
-                Dock = DockStyle.Top, // Оставляем Top, но будем управлять шириной
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                CellBorderStyle = TableLayoutPanelCellBorderStyle.Single,
-                BackColor = Color.White
-            };
-            SetDoubleBuffered(grid);
-            grid.SuspendLayout();
+                int idx = dgvSchedule.Columns.Add($"g_{group.GroupId}", group.GroupName);
+                // ЗАПРЕТ СОРТИРОВКИ (Фото 1 и 2)
+                dgvSchedule.Columns[idx].SortMode = DataGridViewColumnSortMode.NotSortable;
+            }
 
-            int colCount = 2 + groups.Count;
-            grid.ColumnCount = colCount;
-
-            // Настройка столбцов
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40)); // Дни
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 30)); // Номер пары
-
-            // Если групп мало — растягиваем их на весь экран, если много — фиксируем ширину
-            float groupWidth = groups.Count < 5 ? (100f / groups.Count) : 250f;
-            SizeType sType = groups.Count < 5 ? SizeType.Percent : SizeType.Absolute;
-
-            for (int i = 0; i < groups.Count; i++)
-                grid.ColumnStyles.Add(new ColumnStyle(sType, groupWidth));
-
-            // 3. Шапка
-            grid.RowCount = 1;
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            grid.Controls.Add(CreateHeaderLabel("Дни"), 0, 0);
-            grid.Controls.Add(CreateHeaderLabel("#"), 1, 0);
-
-            for (int i = 0; i < groups.Count; i++)
-                grid.Controls.Add(CreateHeaderLabel(groups[i].GroupName), i + 2, 0);
-
-            // 4. Строки (Дни * Пары)
-            string[] days = { "ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ" };
-            int pairsPerDay = 6;
-
-            for (int d = 0; d < days.Length; d++)
+            // Настройка строк (6 дней * 6 пар)
+            string[] days = { "ПОНЕДЕЛЬНИК", "ВТОРНИК", "СРЕДА", "ЧЕТВЕРГ", "ПЯТНИЦА", "СУББОТА" };
+            for (int d = 0; d < 6; d++)
             {
-                for (int p = 0; p < pairsPerDay; p++)
+                for (int p = 1; p <= 6; p++)
                 {
-                    int rowIndex = grid.RowCount++;
-                    grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
-
-                    if (p == 0)
-                    {
-                        var lblDay = CreateHeaderLabel(days[d]);
-                        grid.Controls.Add(lblDay, 0, rowIndex);
-                        grid.SetRowSpan(lblDay, pairsPerDay);
-                    }
-
-                    grid.Controls.Add(CreateHeaderLabel((p + 1).ToString()), 1, rowIndex);
-
-                    // Ячейки-мишени для Drag-and-Drop
-                    for (int g = 0; g < groups.Count; g++)
-                    {
-                        Panel cell = new Panel
-                        {
-                            Dock = DockStyle.Fill,
-                            Margin = new Padding(1),
-                            BackColor = Color.FromArgb(250, 250, 250),
-                            AllowDrop = true,
-                            Tag = new Tuple<int, int, int>(d + 1, p + 1, groups[g].GroupId)
-                        };
-                        grid.Controls.Add(cell, g + 2, rowIndex);
-                    }
+                    int rowIndex = dgvSchedule.Rows.Add();
+                    dgvSchedule.Rows[rowIndex].Cells["colDay"].Value = days[d];
+                    dgvSchedule.Rows[rowIndex].Cells["colPair"].Value = p.ToString();
                 }
             }
 
-            grid.ResumeLayout();
-            scrollWrapper.Controls.Add(grid);
-            pnlScheduleContainer.Controls.Add(scrollWrapper);
+            // События
+            dgvSchedule.CellPainting += DgvSchedule_CellPainting;
+            dgvSchedule.Paint += DgvSchedule_Paint;
+            dgvSchedule.MouseWheel += DgvSchedule_MouseWheel; // Для Зума
+
+            ApplyZoom(); // Применяем начальный масштаб
+
+            pnlScheduleContainer.Controls.Add(dgvSchedule);
             pnlScheduleContainer.ResumeLayout();
         }
 
-        // Вспомогательный метод для красивых заголовков
+        // --- ЛОГИКА ЗУМА ---
+        private void DgvSchedule_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if (Control.ModifierKeys == Keys.Control)
+            {
+                if (e.Delta > 0) _zoomLevel += ZOOM_STEP;
+                else _zoomLevel -= ZOOM_STEP;
+
+                _zoomLevel = Math.Max(MIN_ZOOM, Math.Min(MAX_ZOOM, _zoomLevel));
+                ApplyZoom();
+                ((HandledMouseEventArgs)e).Handled = true;
+            }
+            // НОВАЯ ЛОГИКА ДЛЯ SHIFT (Горизонтальный скролл)
+            else if (Control.ModifierKeys == Keys.Shift)
+            {
+                if (e.Delta > 0) // Крутим вверх — скролл влево
+                {
+                    if (dgvSchedule.FirstDisplayedScrollingColumnIndex > 0)
+                        dgvSchedule.FirstDisplayedScrollingColumnIndex--;
+                }
+                else // Крутим вниз — скролл вправо
+                {
+                    if (dgvSchedule.FirstDisplayedScrollingColumnIndex < dgvSchedule.ColumnCount - 1)
+                        dgvSchedule.FirstDisplayedScrollingColumnIndex++;
+                }
+                ((HandledMouseEventArgs)e).Handled = true;
+            }
+        }
+
+        private void ApplyZoom()
+        {
+            if (dgvSchedule == null) return;
+
+            dgvSchedule.SuspendLayout();
+
+            // Масштабируем высоту строк и заголовка
+            dgvSchedule.ColumnHeadersHeight = (int)(BASE_HEADER_HEIGHT * _zoomLevel);
+            foreach (DataGridViewRow row in dgvSchedule.Rows)
+                row.Height = (int)(BASE_ROW_HEIGHT * _zoomLevel);
+
+            // Масштабируем ширину колонок
+            dgvSchedule.Columns["colDay"].Width = (int)(BASE_WIDTH_DAY * _zoomLevel);
+            dgvSchedule.Columns["colPair"].Width = (int)(BASE_WIDTH_PAIR * _zoomLevel);
+
+            for (int i = 2; i < dgvSchedule.Columns.Count; i++)
+                dgvSchedule.Columns[i].Width = (int)(BASE_WIDTH_GROUP * _zoomLevel);
+
+            dgvSchedule.ResumeLayout();
+            dgvSchedule.Invalidate();
+        }
         private Label CreateHeaderLabel(string text)
         {
             return new Label
@@ -359,6 +364,111 @@ namespace AutoSchedule
                 System.Reflection.BindingFlags.NonPublic |
                 System.Reflection.BindingFlags.Instance)
                 ?.SetValue(control, true, null);
+        }
+
+        private void DgvSchedule_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+
+            bool isHeaderCol = (e.ColumnIndex == 0 || e.ColumnIndex == 1);
+            e.PaintBackground(e.CellBounds, !isHeaderCol);
+
+            // Рисуем правую границу ячейки
+            e.Graphics.DrawLine(_gridPen, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom);
+
+            // Рисуем нижнюю границу ТОЛЬКО если это не столбец дней недели (создаем иллюзию объединения)
+            if (!isHeaderCol)
+            {
+                e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
+            }
+
+            // Блокируем стандартный текст для первых двух столбцов, рисуем сами в Paint
+            if (isHeaderCol) e.Handled = true;
+            else
+            {
+                e.PaintContent(e.CellBounds);
+                e.Handled = true;
+            }
+        }
+
+        private void DgvSchedule_Paint(object sender, PaintEventArgs e)
+        {
+            if (dgvSchedule == null || dgvSchedule.Rows.Count == 0) return;
+
+            int firstRow = dgvSchedule.FirstDisplayedScrollingRowIndex;
+            if (firstRow < 0) return;
+            int lastRow = firstRow + dgvSchedule.DisplayedRowCount(true);
+
+            // Рисуем дни недели (Вертикально)
+            // startDayBlock гарантирует, что мы всегда начинаем рисовать с начала блока текущего дня
+            int startDayBlock = (firstRow / 6) * 6;
+
+            Font fontDay = new Font("Segoe UI", BASE_FONT_SIZE_DAY * _zoomLevel, FontStyle.Bold);
+
+            for (int i = startDayBlock; i <= lastRow; i += 6)
+            {
+                if (i >= dgvSchedule.Rows.Count) break;
+
+                // Получаем один прямоугольник на 6 ячеек
+                Rectangle rectDay = GetMergedRectangle(dgvSchedule, 0, i, 6);
+
+                if (rectDay.Height > 10)
+                {
+                    string dayText = dgvSchedule.Rows[i].Cells["colDay"].Value?.ToString() ?? "";
+                    DrawVerticalText(e.Graphics, dgvSchedule, dayText, fontDay, rectDay);
+                }
+
+                // Рисуем жирную разделительную линию в конце дня
+                if (rectDay.Bottom > 0 && rectDay.Bottom < dgvSchedule.Height)
+                    e.Graphics.DrawLine(_thickPen, 0, rectDay.Bottom - 1, dgvSchedule.Width, rectDay.Bottom - 1);
+            }
+        }
+        private Rectangle GetMergedRectangle(DataGridView grid, int colIndex, int startRow, int count)
+        {
+            Rectangle res = Rectangle.Empty;
+            for (int k = 0; k < count; k++)
+            {
+                int rowIndex = startRow + k;
+                if (rowIndex >= grid.Rows.Count) break;
+                Rectangle r = grid.GetCellDisplayRectangle(colIndex, rowIndex, false);
+                if (r.Width == 0) continue;
+                if (res == Rectangle.Empty) res = r;
+                else res = Rectangle.Union(res, r);
+            }
+            return res;
+        }
+
+        // Метод обновления подсветки аудиторий в карусели
+        private void UpdateRoomHighlight(Models.Classroom selectedRoom)
+        {
+            // Сначала гасим все рамки
+            foreach (var indicator in _roomIndicators.Values) 
+                indicator.Highlight(false);
+
+            // Если выбрана конкретная аудитория (не "?" и не "..."), подсвечиваем её
+            if (selectedRoom != null && _roomIndicators.ContainsKey(selectedRoom.RoomID))
+            {
+                var activeIndicator = _roomIndicators[selectedRoom.RoomID];
+                activeIndicator.Highlight(true);
+                
+                // Прокручиваем карусель к выбранной аудитории
+                flpRoomIndicators.ScrollControlIntoView(activeIndicator); 
+            }
+        }
+
+        private void DrawVerticalText(Graphics g, DataGridView grid, string text, Font font, Rectangle rect)
+        {
+            var state = g.Save();
+            float cx = rect.X + rect.Width / 2f;
+            float cy = rect.Y + rect.Height / 2f;
+            g.SetClip(new Rectangle(0, 0, grid.Width, grid.Height));
+            g.TranslateTransform(cx, cy);
+            g.RotateTransform(-90); // Поворот текста
+            using (StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.DrawString(text, font, Brushes.Black, 0, 0, sf);
+            }
+            g.Restore(state);
         }
 
     }
