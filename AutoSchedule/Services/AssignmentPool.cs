@@ -15,6 +15,8 @@ namespace AutoSchedule.Services
         public Teacher AssignedTeacher { get; set; }
         public int RemainingCount { get; set; }
 
+        public Classroom SelectedRoom { get; set; }
+
         // Удобное свойство для вывода текста в левой панели (например: "Экономика (Лек)")
         public string DisplayName
         {
@@ -31,6 +33,7 @@ namespace AutoSchedule.Services
     public class AssignmentPool
     {
         private List<PoolItem> _items = new List<PoolItem>();
+        public List<PoolItem> GetAllItems() => _items;
 
         // Метод генерации пула карточек на основе обогащенного плана
         public void Initialize(List<EnrichedAcademicPlan> plans)
@@ -103,6 +106,15 @@ namespace AutoSchedule.Services
         public void Restore(PoolItem item)
         {
             item.RemainingCount++;
+        }
+
+        public PoolItem GetItemForSchedule(Schedule s)
+        {
+            // Ищем в пуле карточку, которая совпадает с занятием по предмету, группе и учителю
+            return _items.FirstOrDefault(i =>
+                i.PlanReference.Subject.SubjectID == s.SubjectID &&
+                i.PlanReference.Group.GroupId == s.GroupId &&
+                i.AssignedTeacher.TeacherID == s.TeacherID);
         }
     }
 }

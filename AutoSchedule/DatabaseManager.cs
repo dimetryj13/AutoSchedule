@@ -277,7 +277,7 @@ namespace AutoSchedule
                             ScheduleID = SafeGetInt(reader["ScheduleID"]),
                             GroupName = SafeGetString(reader["GroupName"]),
                             DayOfWeek = SafeGetInt(reader["DayOfWeek"]),
-                            PairNumber = SafeGetInt(reader["PairNumber"]),
+                            LessonNumber = SafeGetInt(reader["PairNumber"]),
                             WeekType = SafeGetInt(reader["WeekType"]),
                             SubjectName = SafeGetString(reader["SubjectName"]),
                             TeacherName = SafeGetString(reader["TeacherName"]),

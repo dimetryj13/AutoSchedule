@@ -57,6 +57,17 @@ namespace AutoSchedule.Controls
             ApplyRoundedCorners(8);
 
             this.MouseWheel += ScheduleCardControl_MouseWheel;
+
+            // --- ДОПИСАТЬ В КОНЕЦ КОНСТРУКТОРА ---
+            this.MouseDown += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    // Сохраняем текущую выбранную аудиторию в PoolItem перед броском
+                    this.ItemData.SelectedRoom = this.SelectedRoom;
+                    // Начинаем перетаскивание
+                    this.DoDragDrop(this.ItemData, DragDropEffects.Move);
+                }
+            };
         }
 
         private void SetCardColor()

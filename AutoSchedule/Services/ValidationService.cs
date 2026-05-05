@@ -78,12 +78,26 @@ namespace AutoSchedule.Services
             bool isBusy = _currentSchedule.Any(s =>
                 s.TeacherName == teacher.FullName &&
                 s.DayOfWeek == dayOfWeek &&
-                s.PairNumber == pairNumber &&
+                s.LessonNumber == pairNumber &&
                 s.WeekType == weekType);
 
             if (isBusy) return false;
 
             return true;
         }
+
+
+        public ValidationResult Validate(PoolItem item, int day, int pair, int week, Classroom room)
+        {
+            // Пока просто возвращаем "ОК", чтобы код запускался. 
+            // Настоящую логику проверок напишем на следующем этапе.
+            return new ValidationResult { IsValid = true, ErrorMessage = "" };
+        }
+    }
+
+    public class ValidationResult
+    {
+        public bool IsValid { get; set; }
+        public string ErrorMessage { get; set; }
     }
 }

@@ -16,6 +16,10 @@ namespace AutoSchedule
         string connectionString = "";
         string dbFolderPath = Path.Combine(Application.StartupPath, "Databases");
 
+        // Переменные для визуального Drag and Drop
+        private PoolItem _draggedItem = null;
+        private Point _dragPosition = Point.Empty;
+
         // Хранилища данных
         List<Classroom> classrooms = new List<Classroom>();
         List<GroupList> groups = new List<GroupList>();
@@ -367,6 +371,13 @@ namespace AutoSchedule
             // СОБЫТИЕ КЛИКА ПО ГРУППЕ
             dgvSchedule.ColumnHeaderMouseClick += DgvSchedule_ColumnHeaderMouseClick;
 
+            dgvSchedule.DragEnter += DgvSchedule_DragEnter;
+            dgvSchedule.DragDrop += DgvSchedule_DragDrop;
+            dgvSchedule.CellMouseClick += DgvSchedule_CellMouseClick;
+
+            dgvSchedule.DragOver += DgvSchedule_DragOver;
+            dgvSchedule.DragLeave += DgvSchedule_DragLeave;
+
             ApplyZoom();
 
             pnlScheduleContainer.Controls.Add(dgvSchedule);
@@ -453,7 +464,7 @@ namespace AutoSchedule
 
             bool isHeaderCol = (e.ColumnIndex == 0 || e.ColumnIndex == 1);
 
-            // ПОДСВЕТКА ВЫБРАННОЙ ГРУППЫ ГОЛУБЫМ ЦВЕТОМ
+            // 1. ЗАЛИВКА ФОНА (Подсветка выбранной группы)
             if (!isHeaderCol && _selectedGroup != null)
             {
                 var colGroup = dgvSchedule.Columns[e.ColumnIndex].Tag as Models.GroupList;
@@ -468,19 +479,119 @@ namespace AutoSchedule
             }
             else e.PaintBackground(e.CellBounds, !isHeaderCol);
 
+            // --- 2. ОТРИСОВКА ЗАПЛАНИРОВАННОГО ЗАНЯТИЯ (НОВОЕ!) ---
+            if (!isHeaderCol && e.RowIndex >= 0)
+            {
+                var colGroup = dgvSchedule.Columns[e.ColumnIndex].Tag as Models.GroupList;
+                var timeInfo = dgvSchedule.Rows[e.RowIndex].Tag as Tuple<int, int, int>;
+
+                if (colGroup != null && timeInfo != null)
+                {
+                    int day = timeInfo.Item1;
+                    int pair = timeInfo.Item2;
+                    int week = timeInfo.Item3;
+
+                    // Ищем, есть ли пара в этом слоте для этой группы
+                    // ВНИМАНИЕ: Если у тебя в Schedule.cs свойство называется не LessonNumber, а PairNumber, исправь здесь!
+                    var lesson = schedules.FirstOrDefault(s =>
+                        s.GroupId == colGroup.GroupId &&
+                        s.DayOfWeek == day &&
+                        s.LessonNumber == pair &&
+                        s.WeekType == week);
+
+                    if (lesson != null)
+                    {
+                        bool isSubjectCol = e.ColumnIndex % 2 == 0; // Четные колонки - предмет, нечетные - ауд.
+
+                        // Закрашиваем саму карточку внутри ячейки (светло-зеленым)
+                        Rectangle innerRect = new Rectangle(e.CellBounds.X + 1, e.CellBounds.Y + 1, e.CellBounds.Width - 3, e.CellBounds.Height - 3);
+                        using (SolidBrush cardBrush = new SolidBrush(Color.FromArgb(210, 245, 210)))
+                        {
+                            e.Graphics.FillRectangle(cardBrush, innerRect);
+                        }
+
+                        // Рисуем текст в зависимости от колонки
+                        if (isSubjectCol)
+                        {
+                            var subj = subjects.FirstOrDefault(s => s.SubjectID == lesson.SubjectID);
+                            var teacher = teachers.FirstOrDefault(t => t.TeacherID == lesson.TeacherID);
+
+                            string text = $"{subj?.SubjectName ?? "..."}\n{teacher?.FullName ?? "..."}";
+                            TextRenderer.DrawText(e.Graphics, text, new Font("Segoe UI", 8), innerRect, Color.Black,
+                                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+                        }
+                        else
+                        {
+                            var room = classrooms.FirstOrDefault(r => r.RoomID == lesson.RoomID);
+                            string text = room?.RoomNumber ?? "";
+                            TextRenderer.DrawText(e.Graphics, text, new Font("Segoe UI", 9, FontStyle.Bold), innerRect, Color.Black,
+                                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                        }
+                    }
+                }
+            }
+
+            // 3. ОТРИСОВКА ГРАНИЦ
             e.Graphics.DrawLine(_gridPen, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom);
 
             if (!isHeaderCol) e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
             else
             {
-                if (e.ColumnIndex == 0 && (e.RowIndex + 1) % 12 == 0) // Конец дня (12 строк)
+                if (e.ColumnIndex == 0 && (e.RowIndex + 1) % 12 == 0) // Конец дня
                     e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
-                else if (e.ColumnIndex == 1 && (e.RowIndex + 1) % 2 == 0) // Конец пары (2 строки)
+                else if (e.ColumnIndex == 1 && (e.RowIndex + 1) % 2 == 0) // Конец пары
                     e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
             }
 
-            if (isHeaderCol) e.Handled = true;
-            else { e.PaintContent(e.CellBounds); e.Handled = true; }
+            // Контент мы нарисовали сами, блокируем стандартную отрисовку DataGridView
+            e.Handled = true;
+        }
+
+        private void DgvSchedule_CellMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            // Только правая кнопка мыши и только по учебным ячейкам (индекс >= 2)
+            if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && e.ColumnIndex >= 2)
+            {
+                var colGroup = dgvSchedule.Columns[e.ColumnIndex].Tag as Models.GroupList;
+                var timeInfo = dgvSchedule.Rows[e.RowIndex].Tag as Tuple<int, int, int>;
+
+                if (colGroup != null && timeInfo != null)
+                {
+                    int day = timeInfo.Item1;
+                    int pair = timeInfo.Item2;
+                    int week = timeInfo.Item3;
+
+                    // Ищем занятие (снова проверяй LessonNumber / PairNumber)
+                    var lesson = schedules.FirstOrDefault(s =>
+                        s.GroupId == colGroup.GroupId &&
+                        s.DayOfWeek == day &&
+                        s.LessonNumber == pair &&
+                        s.WeekType == week);
+
+                    if (lesson != null)
+                    {
+                        if (MessageBox.Show("Очистить эту ячейку и вернуть занятие в пул?", "Удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                        {
+                            // 1. Удаляем из расписания
+                            schedules.Remove(lesson);
+
+                            // 2. ИЩЕМ ВО ВСЕМ ПУЛЕ (GetAllItems) и СВЕРЯЕМ ТИП ЗАНЯТИЯ (LessonType)
+                            var poolItem = globalPool.GetAllItems()
+                                .FirstOrDefault(p => p.PlanReference.Subject.SubjectID == lesson.SubjectID &&
+                                                     p.AssignedTeacher.TeacherID == lesson.TeacherID &&
+                                                     p.PlanReference.Group.GroupId == lesson.GroupId &&
+                                                     p.LessonType == lesson.LessonType);
+
+                            if (poolItem != null) poolItem.RemainingCount++;
+
+                            LogAction("Удаление", "Занятие", $"{day} день, {pair} пара");
+
+                            dgvSchedule.Invalidate();
+                            PopulateAssignmentCards();
+                        }
+                    }
+                }
+            }
         }
 
         private void DgvSchedule_Paint(object sender, PaintEventArgs e)
@@ -536,6 +647,26 @@ namespace AutoSchedule
                     string pairText = dgvSchedule.Rows[i].Cells["colPair"].Value?.ToString() ?? "";
                     TextRenderer.DrawText(e.Graphics, pairText, fontPair, rectPair, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 }
+            }
+
+            // --- ОТРИСОВКА ПОДСКАЗКИ ПРИ ПЕРЕТАСКИВАНИИ ---
+            if (_draggedItem != null)
+            {
+                string dragText = $"{_draggedItem.DisplayName}\n{_draggedItem.AssignedTeacher?.FullName}";
+
+                // Создаем прямоугольник чуть правее и ниже курсора мыши
+                Rectangle dragRect = new Rectangle(_dragPosition.X + 15, _dragPosition.Y + 15, 180, 45);
+
+                // Рисуем полупрозрачный желтоватый фон (как стикер)
+                using (SolidBrush dragBrush = new SolidBrush(Color.FromArgb(220, 255, 255, 200)))
+                {
+                    e.Graphics.FillRectangle(dragBrush, dragRect);
+                }
+                e.Graphics.DrawRectangle(Pens.Orange, dragRect);
+
+                // Пишем текст
+                TextRenderer.DrawText(e.Graphics, dragText, new Font("Segoe UI", 8, FontStyle.Bold), dragRect, Color.Black,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
             }
         }
 
@@ -694,6 +825,128 @@ namespace AutoSchedule
             _selectedSemester = semMode;
             lblSemesterSelect.Text = $"Семестр: {semName}";
             PopulateAssignmentCards();
+        }
+
+        // --- ДОПИСАТЬ НОВЫЕ МЕТОДЫ В КЛАСС Form1 ---
+
+        private void DgvSchedule_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(PoolItem)) && _selectedGroup != null)
+            {
+                e.Effect = DragDropEffects.Move;
+                _draggedItem = e.Data.GetData(typeof(PoolItem)) as PoolItem; // Запоминаем, что тащим
+            }
+            else e.Effect = DragDropEffects.None;
+        }
+
+        // НОВЫЙ МЕТОД: Отслеживает движение мыши над таблицей
+        private void DgvSchedule_DragOver(object sender, DragEventArgs e)
+        {
+            if (_draggedItem != null)
+            {
+                // Конвертируем координаты экрана в координаты таблицы
+                _dragPosition = dgvSchedule.PointToClient(new Point(e.X, e.Y));
+                dgvSchedule.Invalidate(); // Принудительно заставляем перерисовать кадр
+            }
+        }
+
+        private void DgvSchedule_DragDrop(object sender, DragEventArgs e)
+        {
+            _draggedItem = null; // Сбрасываем при броске
+            Point clientPoint = dgvSchedule.PointToClient(new Point(e.X, e.Y));
+            var hit = dgvSchedule.HitTest(clientPoint.X, clientPoint.Y);
+            if (hit.RowIndex >= 0 && e.Data.GetData(typeof(PoolItem)) is PoolItem draggedItem)
+                TryPlaceLesson(draggedItem, hit.RowIndex);
+        }
+
+        // НОВЫЙ МЕТОД: Если увели мышь за пределы таблицы
+        private void DgvSchedule_DragLeave(object sender, EventArgs e)
+        {
+            _draggedItem = null;
+            dgvSchedule.Invalidate();
+        }
+        private void TryPlaceLesson(PoolItem item, int rowIndex)
+        {
+            if (_selectedGroup == null) return;
+
+            // Получаем координаты времени из ячейки
+            var timeInfo = dgvSchedule.Rows[rowIndex].Tag as Tuple<int, int, int>;
+            int day = timeInfo.Item1;
+            int pair = timeInfo.Item2;
+            int weekType = timeInfo.Item3;
+
+            // --- ЛОГИКА ЗАМЕНЫ (НОВОЕ) ---
+            // Ищем, нет ли уже занятия в этой ячейке для этой группы
+            var existingLesson = schedules.FirstOrDefault(s =>
+                s.GroupId == _selectedGroup.GroupId &&
+                s.DayOfWeek == day &&
+                s.LessonNumber == pair &&
+                s.WeekType == weekType);
+
+            if (existingLesson != null)
+            {
+                // 1. Возвращаем старое занятие в пул (увеличиваем счетчик)
+                // Ищем в пуле элемент, который соответствует старому занятию
+                var oldPoolItem = globalPool.GetItemForSchedule(existingLesson);
+                if (oldPoolItem != null)
+                {
+                    oldPoolItem.RemainingCount++;
+                }
+
+                // 2. Удаляем старое занятие из списка расписания
+                schedules.Remove(existingLesson);
+                LogAction("Замена", "Старое занятие удалено", $"{day} день, {pair} пара");
+            }
+
+            // --- ПРОВЕРКА НОВОГО ЗАНЯТИЯ ---
+            var result = globalValidator.Validate(item, day, pair, weekType, item.SelectedRoom);
+            if (!result.IsValid)
+            {
+                var dialog = MessageBox.Show(
+                    $"Внимание! Нарушение ограничений:\n{result.ErrorMessage}\n\nВсе равно поставить?",
+                    "Конфликт", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (dialog == DialogResult.No)
+                {
+                    // Если пользователь отказался заменять, и мы уже удалили старое — 
+                    // тут можно либо оставить ячейку пустой, либо (лучше) не удалять старое до подтверждения.
+                    return;
+                }
+            }
+
+            // --- УСТАНОВКА НОВОГО ЗАНЯТИЯ ---
+            Schedule newLesson = new Schedule
+            {
+                GroupId = _selectedGroup.GroupId,
+                SubjectID = item.PlanReference.Subject.SubjectID,
+                TeacherID = item.AssignedTeacher.TeacherID,
+                RoomID = item.SelectedRoom?.RoomID ?? 0,
+                DayOfWeek = day,
+                LessonNumber = pair,
+                WeekType = weekType,
+                LessonType = item.LessonType
+            };
+
+            schedules.Add(newLesson);
+            item.RemainingCount--;
+
+            LogAction("Добавление", item.DisplayName, $"{day} день, {pair} пара");
+
+            // --- ОБНОВЛЕНИЕ ИНТЕРФЕЙСА (ВАЖНО) ---
+            dgvSchedule.Invalidate(); // Принудительная перерисовка всей сетки
+            PopulateAssignmentCards(); // Обновление счетчиков в левой панели
+        }
+        private void LogAction(string actionName, string objName, string timeStr)
+        {
+            try
+            {
+                string logPath = Path.Combine(Application.StartupPath, "history_log.txt");
+                int actionNum = File.Exists(logPath) ? File.ReadAllLines(logPath).Length + 1 : 1;
+                string dateStr = DateTime.Now.ToString("dd.MM.yyyy");
+                string nowTime = DateTime.Now.ToString("HH:mm:ss");
+                string logLine = $"{actionNum};{actionName};{objName};{timeStr};{nowTime};{dateStr}";
+                File.AppendAllLines(logPath, new[] { logLine });
+            }
+            catch { }
         }
 
     }
