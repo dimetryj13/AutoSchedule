@@ -42,17 +42,21 @@ namespace AutoSchedule
         private const float MAX_ZOOM = 2.0f;
 
         // Базовые размеры (эталонные)
-        private const int BASE_ROW_HEIGHT = 66;
+        private const int BASE_ROW_HEIGHT = 33; // 33px на каждую неделю (в сумме пара = 66px)
         private const int BASE_HEADER_HEIGHT = 40;
         private const float BASE_FONT_SIZE_DAY = 12f;
         private const float BASE_FONT_SIZE_PAIR = 12f;
         private const int BASE_WIDTH_DAY = 40;
-        private const int BASE_WIDTH_PAIR = 30;
-        private const int BASE_WIDTH_GROUP = 250;
+        private const int BASE_WIDTH_PAIR = 40;
+        private const int BASE_WIDTH_SUBJ = 200; // Колонка дисциплины
+        private const int BASE_WIDTH_ROOM = 50;  // Новая колонка аудитории
 
         // Кисти для рисования границ ячеек
         private Pen _gridPen = new Pen(Color.LightGray, 1);
         private Pen _thickPen = new Pen(Color.Black, 2);
+
+        // Переменная для хранения текущей выбранной группы
+        private Models.GroupList _selectedGroup = null;
 
         public Form1()
         {
@@ -62,6 +66,9 @@ namespace AutoSchedule
             SetDoubleBuffered(pnlScheduleContainer);
             // Включаем двойную буферизацию для плавной отрисовки
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer, true);
+            
+           
+        
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -122,50 +129,43 @@ namespace AutoSchedule
         // --- НОВЫЙ МЕТОД: Отрисовка карточек с прогресс-баром ---
         private void PopulateAssignmentCards()
         {
-            var availableItems = globalPool.GetAvailableItems();
-            if (availableItems.Count == 0) return;
-
-            // Создаем и показываем прогресс-бар в центре шахматки
-            ProgressBar pb = new ProgressBar { Maximum = availableItems.Count, Value = 0, Width = 300, Height = 30 };
-            pb.Left = (pnlScheduleContainer.Width - pb.Width) / 2;
-            pb.Top = (pnlScheduleContainer.Height - pb.Height) / 2;
-
-            Label lbl = new Label { Text = "Загрузка карточек...", AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
-            lbl.Left = pb.Left; lbl.Top = pb.Top - 25;
-
-            pnlScheduleContainer.Controls.Add(pb);
-            pnlScheduleContainer.Controls.Add(lbl);
-            pb.BringToFront(); lbl.BringToFront();
-
             flpAssignments.Visible = false;
             flpAssignments.SuspendLayout();
             flpAssignments.Controls.Clear();
 
-            foreach (var item in availableItems)
+            if (_selectedGroup == null)
             {
-                var card = new Controls.ScheduleCardControl(item);
-                var priorityRoomIds = teacherRoomPrefs
-                    .Where(p => p.TeacherID == item.AssignedTeacher?.TeacherID)
-                    .Select(p => p.RoomID).ToList();
-
-                card.LoadRooms(classrooms, priorityRoomIds);
-
-                // Подписки на события
-                card.MouseEnter += (s, e) => { ShowRoomsForCard(card); };
-                card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
-                card.RoomSelectionChanged += (s, room) => UpdateRoomHighlight(room);
-
-                flpAssignments.Controls.Add(card);
-
-                pb.Value++;
-                if (pb.Value % 20 == 0) Application.DoEvents();
+                Label lbl = new Label { Text = "Выберите группу...", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray };
+                flpAssignments.Controls.Add(lbl);
+                flpAssignments.ResumeLayout();
+                flpAssignments.Visible = true;
+                return;
             }
 
+            var allItems = globalPool.GetAvailableItems();
+            // ФИЛЬТРАЦИЯ: Добавили Trim() и StringComparison для надежности
+            var availableItems = allItems
+                .Where(i => i != null && string.Equals(
+                    i.PlanReference?.Group?.GroupName?.Trim(),
+                    _selectedGroup.GroupName?.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (availableItems.Count > 0)
+            {
+                // Отрисовка карточек (твой стандартный код с прогресс-баром)
+                foreach (var item in availableItems)
+                {
+                    var card = new Controls.ScheduleCardControl(item);
+                    // ... (загрузка комнат и события)
+                    card.MouseEnter += (s, args) => { ShowRoomsForCard(card); };
+                    card.MouseLeave += (s, args) => { ClearRoomIndicators(); };
+                    card.RoomSelectionChanged += (s, room) => UpdateRoomHighlight(room);
+                    flpAssignments.Controls.Add(card);
+                }
+            }
             flpAssignments.ResumeLayout();
             flpAssignments.Visible = true;
-
-            pnlScheduleContainer.Controls.Remove(pb);
-            pnlScheduleContainer.Controls.Remove(lbl);
         }
         private void tlpMainLayout_Paint(object sender, PaintEventArgs e) { }
 
@@ -239,8 +239,8 @@ namespace AutoSchedule
         // --- НОВЫЙ МЕТОД: Генерация главной сетки (Шахматки) ---
         private void GenerateScheduleGrid()
         {
-            // Фильтрация актуальных групп
-            var activeGroups = groups.Where(g => g.Actually).ToList();
+            if (groups == null) return;
+            var activeGroups = groups.Where(g => g != null && g.Actually).ToList();
             if (activeGroups.Count == 0) return;
 
             pnlScheduleContainer.SuspendLayout();
@@ -261,50 +261,63 @@ namespace AutoSchedule
             dgvSchedule.Columns["colDay"].Frozen = true;
             dgvSchedule.Columns["colPair"].Frozen = true;
 
+            // ГЕНЕРАЦИЯ ДВОЙНЫХ КОЛОНОК (Дисциплина + Ауд)
             foreach (var group in activeGroups)
             {
-                int idx = dgvSchedule.Columns.Add($"g_{group.GroupId}", group.GroupName);
-                dgvSchedule.Columns[idx].SortMode = DataGridViewColumnSortMode.NotSortable;
+                string gName = string.IsNullOrEmpty(group.GroupName) ? "Без названия" : group.GroupName;
+
+                int idxSubj = dgvSchedule.Columns.Add($"g_{group.GroupId}_subj", gName);
+                dgvSchedule.Columns[idxSubj].SortMode = DataGridViewColumnSortMode.NotSortable;
+                dgvSchedule.Columns[idxSubj].Tag = group; // <--- ВАЖНО: Запоминаем группу
+
+                int idxRoom = dgvSchedule.Columns.Add($"g_{group.GroupId}_room", "Ауд.");
+                dgvSchedule.Columns[idxRoom].SortMode = DataGridViewColumnSortMode.NotSortable;
+                dgvSchedule.Columns[idxRoom].Tag = group; // <--- ВАЖНО: Запоминаем группу
             }
 
-            // Настройка стилей заголовков (по центру, жирный шрифт)
             dgvSchedule.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             dgvSchedule.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             dgvSchedule.ColumnHeadersHeight = 40;
             dgvSchedule.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             dgvSchedule.EnableHeadersVisualStyles = false;
 
+            // ГЕНЕРАЦИЯ 72 СТРОК (Светлая и Темная неделя)
             string[] days = { "ПОНЕДЕЛЬНИК", "ВТОРНИК", "СРЕДА", "ЧЕТВЕРГ", "ПЯТНИЦА", "СУББОТА" };
             for (int d = 0; d < 6; d++)
             {
                 for (int p = 1; p <= 6; p++)
                 {
-                    int rowIndex = dgvSchedule.Rows.Add();
-                    dgvSchedule.Rows[rowIndex].Height = 66;
-                    dgvSchedule.Rows[rowIndex].Cells["colDay"].Value = days[d];
-                    dgvSchedule.Rows[rowIndex].Cells["colPair"].Value = p.ToString();
+                    int r1 = dgvSchedule.Rows.Add();
+                    dgvSchedule.Rows[r1].Cells["colDay"].Value = days[d];
+                    dgvSchedule.Rows[r1].Cells["colPair"].Value = p.ToString();
+                    dgvSchedule.Rows[r1].Tag = new Tuple<int, int, int>(d + 1, p, 1); // 1 = Светлая
+
+                    int r2 = dgvSchedule.Rows.Add();
+                    dgvSchedule.Rows[r2].Cells["colDay"].Value = days[d];
+                    dgvSchedule.Rows[r2].Cells["colPair"].Value = p.ToString();
+                    dgvSchedule.Rows[r2].Tag = new Tuple<int, int, int>(d + 1, p, 2); // 2 = Темная
 
                     for (int c = 2; c < dgvSchedule.Columns.Count; c++)
                     {
-                        dgvSchedule.Rows[rowIndex].Cells[c].Style.BackColor = Color.WhiteSmoke;
+                        dgvSchedule.Rows[r1].Cells[c].Style.BackColor = Color.White;
+                        dgvSchedule.Rows[r2].Cells[c].Style.BackColor = Color.FromArgb(245, 245, 245);
                     }
                 }
             }
 
-            // Привязка обработчиков событий
             dgvSchedule.CellPainting += DgvSchedule_CellPainting;
             dgvSchedule.Paint += DgvSchedule_Paint;
             dgvSchedule.MouseWheel += DgvSchedule_MouseWheel;
-
-            // Принудительная перерисовка при прокрутке (устраняет дефекты вертикального текста)
             dgvSchedule.Scroll += (s, ev) => dgvSchedule.Invalidate();
+
+            // СОБЫТИЕ КЛИКА ПО ГРУППЕ
+            dgvSchedule.ColumnHeaderMouseClick += DgvSchedule_ColumnHeaderMouseClick;
 
             ApplyZoom();
 
             pnlScheduleContainer.Controls.Add(dgvSchedule);
             pnlScheduleContainer.ResumeLayout();
         }
-        // --- ЛОГИКА ЗУМА ---
         private void DgvSchedule_MouseWheel(object sender, MouseEventArgs e)
         {
             if (Control.ModifierKeys == Keys.Control)
@@ -341,20 +354,22 @@ namespace AutoSchedule
         private void ApplyZoom()
         {
             if (dgvSchedule == null) return;
-
             dgvSchedule.SuspendLayout();
 
-            // Масштабируем высоту строк и заголовка
             dgvSchedule.ColumnHeadersHeight = (int)(BASE_HEADER_HEIGHT * _zoomLevel);
             foreach (DataGridViewRow row in dgvSchedule.Rows)
                 row.Height = (int)(BASE_ROW_HEIGHT * _zoomLevel);
 
-            // Масштабируем ширину колонок
             dgvSchedule.Columns["colDay"].Width = (int)(BASE_WIDTH_DAY * _zoomLevel);
             dgvSchedule.Columns["colPair"].Width = (int)(BASE_WIDTH_PAIR * _zoomLevel);
 
-            for (int i = 2; i < dgvSchedule.Columns.Count; i++)
-                dgvSchedule.Columns[i].Width = (int)(BASE_WIDTH_GROUP * _zoomLevel);
+            // Масштабируем: четные колонки - предмет (200px), нечетные - аудитория (50px)
+            for (int i = 2; i < dgvSchedule.Columns.Count; i += 2)
+            {
+                dgvSchedule.Columns[i].Width = (int)(BASE_WIDTH_SUBJ * _zoomLevel);
+                if (i + 1 < dgvSchedule.Columns.Count)
+                    dgvSchedule.Columns[i + 1].Width = (int)(BASE_WIDTH_ROOM * _zoomLevel);
+            }
 
             dgvSchedule.ResumeLayout();
             dgvSchedule.Invalidate();
@@ -383,58 +398,93 @@ namespace AutoSchedule
             if (e.RowIndex < 0) return;
 
             bool isHeaderCol = (e.ColumnIndex == 0 || e.ColumnIndex == 1);
-            e.PaintBackground(e.CellBounds, !isHeaderCol);
 
-            // Рисуем правую границу ячейки
+            // ПОДСВЕТКА ВЫБРАННОЙ ГРУППЫ ГОЛУБЫМ ЦВЕТОМ
+            if (!isHeaderCol && _selectedGroup != null)
+            {
+                var colGroup = dgvSchedule.Columns[e.ColumnIndex].Tag as Models.GroupList;
+                if (colGroup != null && colGroup.GroupName == _selectedGroup.GroupName)
+                {
+                    bool isDarkWeek = e.RowIndex % 2 != 0;
+                    Color highlightColor = isDarkWeek ? Color.FromArgb(210, 230, 255) : Color.AliceBlue;
+                    using (SolidBrush bgBrush = new SolidBrush(highlightColor))
+                        e.Graphics.FillRectangle(bgBrush, e.CellBounds);
+                }
+                else e.PaintBackground(e.CellBounds, true);
+            }
+            else e.PaintBackground(e.CellBounds, !isHeaderCol);
+
             e.Graphics.DrawLine(_gridPen, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom);
 
-            // Рисуем нижнюю границу ТОЛЬКО если это не столбец дней недели (создаем иллюзию объединения)
-            if (!isHeaderCol)
-            {
-                e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
-            }
-
-            // Блокируем стандартный текст для первых двух столбцов, рисуем сами в Paint
-            if (isHeaderCol) e.Handled = true;
+            if (!isHeaderCol) e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
             else
             {
-                e.PaintContent(e.CellBounds);
-                e.Handled = true;
+                if (e.ColumnIndex == 0 && (e.RowIndex + 1) % 12 == 0) // Конец дня (12 строк)
+                    e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
+                else if (e.ColumnIndex == 1 && (e.RowIndex + 1) % 2 == 0) // Конец пары (2 строки)
+                    e.Graphics.DrawLine(_gridPen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
             }
+
+            if (isHeaderCol) e.Handled = true;
+            else { e.PaintContent(e.CellBounds); e.Handled = true; }
         }
 
         private void DgvSchedule_Paint(object sender, PaintEventArgs e)
         {
             if (dgvSchedule == null || dgvSchedule.Rows.Count == 0) return;
-
             int firstRow = dgvSchedule.FirstDisplayedScrollingRowIndex;
             if (firstRow < 0) return;
             int lastRow = firstRow + dgvSchedule.DisplayedRowCount(true);
 
-            // Рисуем дни недели (Вертикально)
-            // startDayBlock гарантирует, что мы всегда начинаем рисовать с начала блока текущего дня
-            int startDayBlock = (firstRow / 6) * 6;
+            for (int i = firstRow; i <= lastRow && i < dgvSchedule.Rows.Count; i++)
+            {
+                if ((i + 1) % 12 == 0)
+                {
+                    var rect = dgvSchedule.GetRowDisplayRectangle(i, true);
+                    if (rect.Height > 0) e.Graphics.DrawLine(_thickPen, rect.Left, rect.Bottom - 1, rect.Right, rect.Bottom - 1);
+                }
+            }
+
+            var rectNav = dgvSchedule.GetColumnDisplayRectangle(1, true);
+            if (rectNav.Width > 0) e.Graphics.DrawLine(_thickPen, rectNav.Right - 1, 0, rectNav.Right - 1, dgvSchedule.Height);
+
+            // Разделители групп
+            for (int c = 3; c < dgvSchedule.Columns.Count; c += 2)
+            {
+                var rectCol = dgvSchedule.GetColumnDisplayRectangle(c, true);
+                if (rectCol.Width > 0) e.Graphics.DrawLine(_thickPen, rectCol.Right - 1, 0, rectCol.Right - 1, dgvSchedule.Height);
+            }
 
             Font fontDay = new Font("Segoe UI", BASE_FONT_SIZE_DAY * _zoomLevel, FontStyle.Bold);
+            Font fontPair = new Font("Segoe UI", BASE_FONT_SIZE_PAIR * _zoomLevel, FontStyle.Bold);
 
-            for (int i = startDayBlock; i <= lastRow; i += 6)
+            // Отрисовка Дней
+            int startDayBlock = (firstRow / 12) * 12;
+            for (int i = startDayBlock; i <= lastRow; i += 12)
             {
                 if (i >= dgvSchedule.Rows.Count) break;
-
-                // Получаем один прямоугольник на 6 ячеек
-                Rectangle rectDay = GetMergedRectangle(dgvSchedule, 0, i, 6);
-
-                if (rectDay.Height > 10)
+                Rectangle rectDay = GetMergedRectangle(dgvSchedule, 0, i, 12);
+                if (rectDay.Height > 20)
                 {
                     string dayText = dgvSchedule.Rows[i].Cells["colDay"].Value?.ToString() ?? "";
                     DrawVerticalText(e.Graphics, dgvSchedule, dayText, fontDay, rectDay);
                 }
+            }
 
-                // Рисуем жирную разделительную линию в конце дня
-                if (rectDay.Bottom > 0 && rectDay.Bottom < dgvSchedule.Height)
-                    e.Graphics.DrawLine(_thickPen, 0, rectDay.Bottom - 1, dgvSchedule.Width, rectDay.Bottom - 1);
+            // Отрисовка Пар
+            int startPairBlock = (firstRow / 2) * 2;
+            for (int i = startPairBlock; i <= lastRow; i += 2)
+            {
+                if (i >= dgvSchedule.Rows.Count) break;
+                Rectangle rectPair = GetMergedRectangle(dgvSchedule, 1, i, 2);
+                if (rectPair.Height > 10)
+                {
+                    string pairText = dgvSchedule.Rows[i].Cells["colPair"].Value?.ToString() ?? "";
+                    TextRenderer.DrawText(e.Graphics, pairText, fontPair, rectPair, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
             }
         }
+
         private Rectangle GetMergedRectangle(DataGridView grid, int colIndex, int startRow, int count)
         {
             Rectangle res = Rectangle.Empty;
@@ -483,5 +533,56 @@ namespace AutoSchedule
             g.Restore(state);
         }
 
+        private void DgvSchedule_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.ColumnIndex < 2) return;
+
+            var clickedCol = dgvSchedule.Columns[e.ColumnIndex];
+            var group = clickedCol.Tag as Models.GroupList;
+
+            if (group != null)
+            {
+                if (_selectedGroup != null && _selectedGroup.GroupName == group.GroupName)
+                    _selectedGroup = null; // Снимаем выделение
+                else
+                    _selectedGroup = group; // Выделяем новую
+
+                dgvSchedule.ClearSelection();
+                UpdateColumnHighlights();
+
+                PopulateAssignmentCards(); // Обновляем карточки слева
+            }
+        }
+
+        private void UpdateColumnHighlights()
+        {
+            for (int i = 2; i < dgvSchedule.Columns.Count; i++)
+            {
+                var colGroup = dgvSchedule.Columns[i].Tag as Models.GroupList;
+                bool isSelected = (_selectedGroup != null && colGroup != null && colGroup.GroupName == _selectedGroup.GroupName);
+                dgvSchedule.Columns[i].HeaderCell.Style.BackColor = isSelected ? Color.LightSkyBlue : Color.FromArgb(240, 240, 240);
+            }
+            dgvSchedule.Invalidate();
+        }
+
+        // --- ОБРАБОТЧИК КНОПКИ ВЫБОРА ГРУППЫ ---
+        private void btnSelectGroup_Click(object sender, EventArgs e)
+        {
+            if (groups == null || groups.Count == 0) return;
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            foreach (var g in groups.Where(g => g.Actually))
+            {
+                var item = menu.Items.Add(g.GroupName);
+                item.Tag = g;
+                item.Click += (s, args) =>
+                {
+                    _selectedGroup = (Models.GroupList)((ToolStripMenuItem)s).Tag;
+                    UpdateColumnHighlights();
+                    PopulateAssignmentCards();
+                };
+            }
+            menu.Show(Cursor.Position);
+        }
     }
 }

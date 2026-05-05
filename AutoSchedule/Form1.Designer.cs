@@ -34,6 +34,7 @@
             this.flpRoomIndicators = new System.Windows.Forms.FlowLayoutPanel();
             this.pnlToolbar = new System.Windows.Forms.Panel();
             this.btnOpenDb = new System.Windows.Forms.Button();
+            this.btnSelectGroup = new System.Windows.Forms.Button();
             this.tlpMainLayout.SuspendLayout();
             this.pnlToolbar.SuspendLayout();
             this.SuspendLayout();
@@ -96,6 +97,7 @@
             // pnlToolbar
             // 
             this.pnlToolbar.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlToolbar.Controls.Add(this.btnSelectGroup);
             this.pnlToolbar.Controls.Add(this.btnOpenDb);
             this.pnlToolbar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlToolbar.Location = new System.Drawing.Point(155, 3);
@@ -112,6 +114,16 @@
             this.btnOpenDb.Text = "button1";
             this.btnOpenDb.UseVisualStyleBackColor = true;
             this.btnOpenDb.Click += new System.EventHandler(this.btnOpenDb_Click);
+            // 
+            // btnSelectGroup
+            // 
+            this.btnSelectGroup.Location = new System.Drawing.Point(101, -1);
+            this.btnSelectGroup.Name = "btnSelectGroup";
+            this.btnSelectGroup.Size = new System.Drawing.Size(146, 23);
+            this.btnSelectGroup.TabIndex = 1;
+            this.btnSelectGroup.Text = "Выбрать группу";
+            this.btnSelectGroup.UseVisualStyleBackColor = true;
+            this.btnSelectGroup.Click += new System.EventHandler(this.btnSelectGroup_Click);
             // 
             // Form1
             // 
@@ -138,6 +150,7 @@
         private System.Windows.Forms.FlowLayoutPanel flpRoomIndicators;
         private System.Windows.Forms.Panel pnlToolbar;
         private System.Windows.Forms.Button btnOpenDb;
+        private System.Windows.Forms.Button btnSelectGroup;
     }
 }
 
