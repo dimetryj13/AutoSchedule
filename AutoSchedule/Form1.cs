@@ -58,6 +58,8 @@ namespace AutoSchedule
         // Переменная для хранения текущей выбранной группы
         private Models.GroupList _selectedGroup = null;
 
+        // Состояние выбора
+        private int _selectedSemester = 0; // 0 - не выбран
         public Form1()
         {
             InitializeComponent();
@@ -73,6 +75,9 @@ namespace AutoSchedule
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            // Устанавливаем значения по умолчанию
+            lblGroupSelect.Text = "Группа: не выбрано";
+            lblSemesterSelect.Text = "Семестр: не выбрано";
             // Создаем папку БД, если её нет
             if (!Directory.Exists(dbFolderPath)) Directory.CreateDirectory(dbFolderPath);
 
@@ -133,37 +138,86 @@ namespace AutoSchedule
             flpAssignments.SuspendLayout();
             flpAssignments.Controls.Clear();
 
-            if (_selectedGroup == null)
+            if (_selectedGroup == null || _selectedSemester == 0)
             {
-                Label lbl = new Label { Text = "Выберите группу...", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray };
-                flpAssignments.Controls.Add(lbl);
+                string hint = _selectedGroup == null ? "группу" : "семестр";
+                Label lblPlaceholder = new Label
+                {
+                    Text = $"Выберите {hint} на панели управления,\nчтобы отобразить карточки.",
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new Font("Segoe UI", 9, FontStyle.Italic),
+                    ForeColor = Color.Gray
+                };
+                flpAssignments.Controls.Add(lblPlaceholder);
                 flpAssignments.ResumeLayout();
                 flpAssignments.Visible = true;
                 return;
             }
 
-            var allItems = globalPool.GetAvailableItems();
-            // ФИЛЬТРАЦИЯ: Добавили Trim() и StringComparison для надежности
-            var availableItems = allItems
-                .Where(i => i != null && string.Equals(
-                    i.PlanReference?.Group?.GroupName?.Trim(),
-                    _selectedGroup.GroupName?.Trim(),
-                    StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            // ПРОВЕРКА: Выбраны ли оба параметра?
+            if (_selectedGroup == null || _selectedSemester == 0)
+            {
+                Label lblPlaceholder = new Label
+                {
+                    Text = "Выберите группу и семестр\nна панели управления.",
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new Font("Segoe UI", 9, FontStyle.Italic),
+                    ForeColor = Color.Gray
+                };
+                flpAssignments.Controls.Add(lblPlaceholder);
+                flpAssignments.ResumeLayout();
+                flpAssignments.Visible = true;
+                return;
+            }
 
+            if (globalPool == null) return;
+            var allItems = globalPool.GetAvailableItems();
+
+            // --- УМНАЯ ФИЛЬТРАЦИЯ ---
+            var availableItems = allItems
+                // 1. Совпадение по группе
+                .Where(i => i != null &&
+                       string.Equals(i.PlanReference?.Group?.GroupName?.Trim(), _selectedGroup.GroupName?.Trim(), StringComparison.OrdinalIgnoreCase))
+                // 2. Проверка семестра на четность
+                .Where(i =>
+                {
+                    int dbSem = i.PlanReference.Semester;
+
+                    // Если выбрали Осенний (_selectedSemester == 1), пропускаем нечетные (1, 3, 5, 7)
+                    if (_selectedSemester == 1) return dbSem % 2 != 0;
+
+                    // Если выбрали Весенний (_selectedSemester == 2), пропускаем четные (2, 4, 6, 8)
+                    if (_selectedSemester == 2) return dbSem % 2 == 0;
+
+                    return false;
+                })
+                .ToList();
             if (availableItems.Count > 0)
             {
-                // Отрисовка карточек (твой стандартный код с прогресс-баром)
                 foreach (var item in availableItems)
                 {
                     var card = new Controls.ScheduleCardControl(item);
-                    // ... (загрузка комнат и события)
-                    card.MouseEnter += (s, args) => { ShowRoomsForCard(card); };
-                    card.MouseLeave += (s, args) => { ClearRoomIndicators(); };
+
+                    List<int> priorityRoomIds = new List<int>();
+                    if (teacherRoomPrefs != null)
+                        priorityRoomIds = teacherRoomPrefs.Where(p => p != null && p.TeacherID == item.AssignedTeacher?.TeacherID).Select(p => p.RoomID).ToList();
+
+                    card.LoadRooms(classrooms, priorityRoomIds);
+                    card.MouseEnter += (s, e) => { ShowRoomsForCard(card); };
+                    card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
                     card.RoomSelectionChanged += (s, room) => UpdateRoomHighlight(room);
+
                     flpAssignments.Controls.Add(card);
                 }
             }
+            else
+            {
+                Label lblEmpty = new Label { Text = "В этом семестре у группы нет занятий.", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray };
+                flpAssignments.Controls.Add(lblEmpty);
+            }
+
             flpAssignments.ResumeLayout();
             flpAssignments.Visible = true;
         }
@@ -533,6 +587,22 @@ namespace AutoSchedule
             g.Restore(state);
         }
 
+        // Единый метод для смены группы из любого места интерфейса
+        // Единый метод для смены группы
+        private void SelectGroupInternal(Models.GroupList group)
+        {
+            _selectedGroup = group;
+
+            // СТРОКУ _selectedSemester = 0; МЫ УДАЛИЛИ!
+            // Теперь выбранный семестр сохраняется при переключении групп.
+
+            lblGroupSelect.Text = "Группа: " + (_selectedGroup?.GroupName ?? "не выбрано");
+
+            UpdateColumnHighlights();
+            PopulateAssignmentCards();
+        }
+
+        // Теперь обновляем обработчик клика по колонке DataGridView
         private void DgvSchedule_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
         {
             if (e.ColumnIndex < 2) return;
@@ -542,18 +612,13 @@ namespace AutoSchedule
 
             if (group != null)
             {
+                // Если кликнули на ту же группу — снимаем выбор, иначе выбираем новую
                 if (_selectedGroup != null && _selectedGroup.GroupName == group.GroupName)
-                    _selectedGroup = null; // Снимаем выделение
+                    SelectGroupInternal(null);
                 else
-                    _selectedGroup = group; // Выделяем новую
-
-                dgvSchedule.ClearSelection();
-                UpdateColumnHighlights();
-
-                PopulateAssignmentCards(); // Обновляем карточки слева
+                    SelectGroupInternal(group);
             }
         }
-
         private void UpdateColumnHighlights()
         {
             for (int i = 2; i < dgvSchedule.Columns.Count; i++)
@@ -584,5 +649,52 @@ namespace AutoSchedule
             }
             menu.Show(Cursor.Position);
         }
+
+
+
+        // --- КЛИК ПО НАЗВАНИЮ ГРУППЫ ---
+        // --- ВЫБОР ГРУППЫ ЧЕРЕЗ ЛЕЙБЛ ---
+        private void lblGroupSelect_Click(object sender, EventArgs e)
+        {
+            if (groups == null || groups.Count == 0) return;
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            foreach (var g in groups.Where(g => g.Actually))
+            {
+                var item = menu.Items.Add(g.GroupName);
+                item.Tag = g;
+                item.Click += (s, args) =>
+                {
+                    var selected = (Models.GroupList)((ToolStripMenuItem)s).Tag;
+                    SelectGroupInternal(selected); // Вызываем единый метод выбора
+                };
+            }
+            menu.Show(lblGroupSelect, new Point(0, lblGroupSelect.Height));
+        }
+
+        // --- ВЫБОР СЕМЕСТРА ---
+        // --- ВЫБОР СЕМЕСТРА (Теперь не зависит от группы) ---
+        private void lblSemesterSelect_Click(object sender, EventArgs e)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+
+            // Передаем 1 как код нечетного семестра (Осенний: 1, 3, 5, 7)
+            var itemAutumn = menu.Items.Add("Осенний семестр (Нечетный)");
+            itemAutumn.Click += (s, args) => SetSemester(1, "Осенний");
+
+            // Передаем 2 как код четного семестра (Весенний: 2, 4, 6, 8)
+            var itemSpring = menu.Items.Add("Весенний семестр (Четный)");
+            itemSpring.Click += (s, args) => SetSemester(2, "Весенний");
+
+            menu.Show(Cursor.Position);
+        }
+
+        private void SetSemester(int semMode, string semName)
+        {
+            _selectedSemester = semMode;
+            lblSemesterSelect.Text = $"Семестр: {semName}";
+            PopulateAssignmentCards();
+        }
+
     }
 }

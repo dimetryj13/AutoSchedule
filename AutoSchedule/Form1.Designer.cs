@@ -33,8 +33,9 @@
             this.pnlScheduleContainer = new System.Windows.Forms.Panel();
             this.flpRoomIndicators = new System.Windows.Forms.FlowLayoutPanel();
             this.pnlToolbar = new System.Windows.Forms.Panel();
+            this.lblSemesterSelect = new System.Windows.Forms.Label();
+            this.lblGroupSelect = new System.Windows.Forms.Label();
             this.btnOpenDb = new System.Windows.Forms.Button();
-            this.btnSelectGroup = new System.Windows.Forms.Button();
             this.tlpMainLayout.SuspendLayout();
             this.pnlToolbar.SuspendLayout();
             this.SuspendLayout();
@@ -97,7 +98,8 @@
             // pnlToolbar
             // 
             this.pnlToolbar.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pnlToolbar.Controls.Add(this.btnSelectGroup);
+            this.pnlToolbar.Controls.Add(this.lblSemesterSelect);
+            this.pnlToolbar.Controls.Add(this.lblGroupSelect);
             this.pnlToolbar.Controls.Add(this.btnOpenDb);
             this.pnlToolbar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlToolbar.Location = new System.Drawing.Point(155, 3);
@@ -105,25 +107,37 @@
             this.pnlToolbar.Size = new System.Drawing.Size(642, 52);
             this.pnlToolbar.TabIndex = 3;
             // 
+            // lblSemesterSelect
+            // 
+            this.lblSemesterSelect.AutoSize = true;
+            this.lblSemesterSelect.Font = new System.Drawing.Font("Times New Roman", 10.2F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.lblSemesterSelect.Location = new System.Drawing.Point(3, 28);
+            this.lblSemesterSelect.Name = "lblSemesterSelect";
+            this.lblSemesterSelect.Size = new System.Drawing.Size(80, 19);
+            this.lblSemesterSelect.TabIndex = 2;
+            this.lblSemesterSelect.Text = "Семестр:";
+            this.lblSemesterSelect.Click += new System.EventHandler(this.lblSemesterSelect_Click);
+            // 
+            // lblGroupSelect
+            // 
+            this.lblGroupSelect.AutoSize = true;
+            this.lblGroupSelect.Font = new System.Drawing.Font("Times New Roman", 10.2F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.lblGroupSelect.Location = new System.Drawing.Point(3, 6);
+            this.lblGroupSelect.Name = "lblGroupSelect";
+            this.lblGroupSelect.Size = new System.Drawing.Size(74, 19);
+            this.lblGroupSelect.TabIndex = 1;
+            this.lblGroupSelect.Text = "Группа: ";
+            this.lblGroupSelect.Click += new System.EventHandler(this.lblGroupSelect_Click);
+            // 
             // btnOpenDb
             // 
-            this.btnOpenDb.Location = new System.Drawing.Point(3, -1);
+            this.btnOpenDb.Location = new System.Drawing.Point(190, 3);
             this.btnOpenDb.Name = "btnOpenDb";
             this.btnOpenDb.Size = new System.Drawing.Size(75, 23);
             this.btnOpenDb.TabIndex = 0;
             this.btnOpenDb.Text = "button1";
             this.btnOpenDb.UseVisualStyleBackColor = true;
             this.btnOpenDb.Click += new System.EventHandler(this.btnOpenDb_Click);
-            // 
-            // btnSelectGroup
-            // 
-            this.btnSelectGroup.Location = new System.Drawing.Point(101, -1);
-            this.btnSelectGroup.Name = "btnSelectGroup";
-            this.btnSelectGroup.Size = new System.Drawing.Size(146, 23);
-            this.btnSelectGroup.TabIndex = 1;
-            this.btnSelectGroup.Text = "Выбрать группу";
-            this.btnSelectGroup.UseVisualStyleBackColor = true;
-            this.btnSelectGroup.Click += new System.EventHandler(this.btnSelectGroup_Click);
             // 
             // Form1
             // 
@@ -138,6 +152,7 @@
             this.Load += new System.EventHandler(this.Form1_Load);
             this.tlpMainLayout.ResumeLayout(false);
             this.pnlToolbar.ResumeLayout(false);
+            this.pnlToolbar.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -150,7 +165,8 @@
         private System.Windows.Forms.FlowLayoutPanel flpRoomIndicators;
         private System.Windows.Forms.Panel pnlToolbar;
         private System.Windows.Forms.Button btnOpenDb;
-        private System.Windows.Forms.Button btnSelectGroup;
+        private System.Windows.Forms.Label lblGroupSelect;
+        private System.Windows.Forms.Label lblSemesterSelect;
     }
 }
 
