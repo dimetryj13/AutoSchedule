@@ -208,6 +208,11 @@ namespace AutoSchedule.Controls
 
             e.Graphics.DrawString(displaySubjectName, subjectFont, Brushes.Black, subjectRect, textCenterFormat);
 
+            // Внутри метода OnPaint, перед отрисовкой преподавателя:
+            string countText = $"{ItemData.TotalCount - ItemData.RemainingCount} из {ItemData.TotalCount}";
+            Font countFont = new Font("Segoe UI", 7, FontStyle.Bold);
+            e.Graphics.DrawString(countText, countFont, Brushes.Gray, new PointF(5, this.Height - 15));
+
             RectangleF teacherRect = new RectangleF(0, 36, this.Width - 40, 20);
             string teacherText = ItemData?.AssignedTeacher?.FullName ?? "Не назначен";
             Font teacherFont = new Font("Segoe UI", 7.5f, FontStyle.Italic);

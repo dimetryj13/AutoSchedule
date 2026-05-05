@@ -35,6 +35,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Name = "RoomIndicatorControl";
+            this.Load += new System.EventHandler(this.RoomIndicatorControl_Load);
             this.ResumeLayout(false);
 
         }

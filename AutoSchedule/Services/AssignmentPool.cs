@@ -15,6 +15,8 @@ namespace AutoSchedule.Services
         public Teacher AssignedTeacher { get; set; }
         public int RemainingCount { get; set; }
 
+        public int TotalCount { get; set; }
+
         public Classroom SelectedRoom { get; set; }
 
         // Удобное свойство для вывода текста в левой панели (например: "Экономика (Лек)")
@@ -50,7 +52,8 @@ namespace AutoSchedule.Services
                         PlanReference = plan,
                         LessonType = 0,
                         AssignedTeacher = plan.LectureTeacher,
-                        RemainingCount = plan.LectureInWeek
+                        RemainingCount = plan.LectureInWeek,
+                        TotalCount = plan.LectureInWeek
                     });
                 }
 
@@ -62,7 +65,8 @@ namespace AutoSchedule.Services
                         PlanReference = plan,
                         LessonType = 1,
                         AssignedTeacher = plan.PracticeTeacher, // Для лаб обычно берется препод практики
-                        RemainingCount = plan.LabsInWeek
+                        RemainingCount = plan.LabsInWeek,
+                        TotalCount = plan.LabsInWeek,
                     });
                 }
 
@@ -74,7 +78,8 @@ namespace AutoSchedule.Services
                         PlanReference = plan,
                         LessonType = 2,
                         AssignedTeacher = plan.PracticeTeacher,
-                        RemainingCount = plan.PracticeInWeek
+                        RemainingCount = plan.PracticeInWeek,
+                        TotalCount = plan.PracticeInWeek
                     });
                 }
             }

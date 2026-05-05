@@ -23,6 +23,13 @@ namespace AutoSchedule.Controls
             this.DoubleBuffered = true;
             this.BackColor = Color.Transparent;
             this.Margin = new Padding(4, 5, 4, 5);
+
+            this.MouseDown += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    this.DoDragDrop(this.RoomData, DragDropEffects.Link); // Используем Link для отличия от Move
+                }
+            };
         }
 
         public void Highlight(bool active)
@@ -79,6 +86,11 @@ namespace AutoSchedule.Controls
             Font capacityFont = new Font("Segoe UI", 6, FontStyle.Regular);
             StringFormat capSf = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Far };
             e.Graphics.DrawString($"{RoomData.Capacity} чел", capacityFont, Brushes.Gray, new RectangleF(rect.X, rect.Y, rect.Width - 2, rect.Height - 2), capSf);
+        }
+
+        private void RoomIndicatorControl_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

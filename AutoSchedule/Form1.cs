@@ -505,7 +505,16 @@ namespace AutoSchedule
 
                         // Закрашиваем саму карточку внутри ячейки (светло-зеленым)
                         Rectangle innerRect = new Rectangle(e.CellBounds.X + 1, e.CellBounds.Y + 1, e.CellBounds.Width - 3, e.CellBounds.Height - 3);
-                        using (SolidBrush cardBrush = new SolidBrush(Color.FromArgb(210, 245, 210)))
+                        Color typeColor;
+                        switch (lesson.LessonType)
+                        {
+                            case 0: typeColor = Color.LightGreen; break;
+                            case 1: typeColor = Color.LightSkyBlue; break;
+                            case 2: typeColor = Color.LightCoral; break;
+                            default: typeColor = Color.FromArgb(210, 245, 210); break;
+                        }
+
+                        using (SolidBrush cardBrush = new SolidBrush(Color.FromArgb(180, typeColor))) // 180 для легкой прозрачности
                         {
                             e.Graphics.FillRectangle(cardBrush, innerRect);
                         }
@@ -831,15 +840,34 @@ namespace AutoSchedule
 
         private void DgvSchedule_DragEnter(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(typeof(PoolItem)) && _selectedGroup != null)
-            {
-                e.Effect = DragDropEffects.Move;
-                _draggedItem = e.Data.GetData(typeof(PoolItem)) as PoolItem; // Запоминаем, что тащим
-            }
-            else e.Effect = DragDropEffects.None;
+            // Разрешаем, если это карточка (PoolItem) ИЛИ аудитория (Classroom)
+            if ((e.Data.GetDataPresent(typeof(PoolItem)) || e.Data.GetDataPresent(typeof(Classroom))) && _selectedGroup != null)
+                e.Effect = (e.Data.GetDataPresent(typeof(Classroom))) ? DragDropEffects.Link : DragDropEffects.Move;
+            else
+                e.Effect = DragDropEffects.None;
         }
 
+        private void DgvSchedule_DragDrop(object sender, DragEventArgs e)
+        {
+            Point clientPoint = dgvSchedule.PointToClient(new Point(e.X, e.Y));
+            var hit = dgvSchedule.HitTest(clientPoint.X, clientPoint.Y);
+            if (hit.RowIndex < 0) return;
+
+            // СЛУЧАЙ А: Бросили новую карточку
+            if (e.Data.GetData(typeof(PoolItem)) is PoolItem draggedItem)
+            {
+                TryPlaceLesson(draggedItem, hit.RowIndex);
+            }
+            // СЛУЧАЙ Б: Бросили аудиторию на существующий предмет
+            else if (e.Data.GetData(typeof(Classroom)) is Classroom droppedRoom)
+            {
+                TryUpdateRoom(droppedRoom, hit.RowIndex, hit.ColumnIndex);
+            }
+        }
         // НОВЫЙ МЕТОД: Отслеживает движение мыши над таблицей
+
+
+
         private void DgvSchedule_DragOver(object sender, DragEventArgs e)
         {
             if (_draggedItem != null)
@@ -850,14 +878,32 @@ namespace AutoSchedule
             }
         }
 
-        private void DgvSchedule_DragDrop(object sender, DragEventArgs e)
+        // Новый метод для быстрой смены аудитории
+        private void TryUpdateRoom(Classroom room, int rowIndex, int colIndex)
         {
-            _draggedItem = null; // Сбрасываем при броске
-            Point clientPoint = dgvSchedule.PointToClient(new Point(e.X, e.Y));
-            var hit = dgvSchedule.HitTest(clientPoint.X, clientPoint.Y);
-            if (hit.RowIndex >= 0 && e.Data.GetData(typeof(PoolItem)) is PoolItem draggedItem)
-                TryPlaceLesson(draggedItem, hit.RowIndex);
+            if (colIndex < 2) return;
+
+            var colGroup = dgvSchedule.Columns[colIndex].Tag as Models.GroupList;
+            var timeInfo = dgvSchedule.Rows[rowIndex].Tag as Tuple<int, int, int>;
+
+            if (colGroup != null && timeInfo != null)
+            {
+                var lesson = schedules.FirstOrDefault(s =>
+                    s.GroupId == colGroup.GroupId &&
+                    s.DayOfWeek == timeInfo.Item1 &&
+                    s.LessonNumber == timeInfo.Item2 &&
+                    s.WeekType == timeInfo.Item3);
+
+                if (lesson != null)
+                {
+                    lesson.RoomID = room.RoomID; // Просто меняем ID комнаты
+                    LogAction("Смена ауд.", $"{room.RoomNumber}", $"{timeInfo.Item1} день, {timeInfo.Item2} пара");
+                    dgvSchedule.Invalidate();
+                }
+            }
         }
+
+
 
         // НОВЫЙ МЕТОД: Если увели мышь за пределы таблицы
         private void DgvSchedule_DragLeave(object sender, EventArgs e)
