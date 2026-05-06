@@ -33,6 +33,7 @@
             this.pnlScheduleContainer = new System.Windows.Forms.Panel();
             this.flpRoomIndicators = new System.Windows.Forms.FlowLayoutPanel();
             this.pnlToolbar = new System.Windows.Forms.Panel();
+            this.btnHistory = new System.Windows.Forms.Button();
             this.lblSemesterSelect = new System.Windows.Forms.Label();
             this.lblGroupSelect = new System.Windows.Forms.Label();
             this.btnOpenDb = new System.Windows.Forms.Button();
@@ -98,6 +99,7 @@
             // pnlToolbar
             // 
             this.pnlToolbar.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlToolbar.Controls.Add(this.btnHistory);
             this.pnlToolbar.Controls.Add(this.lblSemesterSelect);
             this.pnlToolbar.Controls.Add(this.lblGroupSelect);
             this.pnlToolbar.Controls.Add(this.btnOpenDb);
@@ -106,6 +108,16 @@
             this.pnlToolbar.Name = "pnlToolbar";
             this.pnlToolbar.Size = new System.Drawing.Size(642, 52);
             this.pnlToolbar.TabIndex = 3;
+            // 
+            // btnHistory
+            // 
+            this.btnHistory.Location = new System.Drawing.Point(173, 28);
+            this.btnHistory.Name = "btnHistory";
+            this.btnHistory.Size = new System.Drawing.Size(92, 23);
+            this.btnHistory.TabIndex = 3;
+            this.btnHistory.Text = "📖 История действий";
+            this.btnHistory.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
+            this.btnHistory.Click += new System.EventHandler(this.btnHistory_Click);
             // 
             // lblSemesterSelect
             // 
@@ -167,6 +179,7 @@
         private System.Windows.Forms.Button btnOpenDb;
         private System.Windows.Forms.Label lblGroupSelect;
         private System.Windows.Forms.Label lblSemesterSelect;
+        private System.Windows.Forms.Button btnHistory;
     }
 }
 

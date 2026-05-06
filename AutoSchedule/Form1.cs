@@ -1203,5 +1203,10 @@ namespace AutoSchedule
                 }
             }
         }
+
+        private void btnHistory_Click(object sender, EventArgs e)
+        {
+            new FormHistory().ShowDialog();
+        }
     }
 }
