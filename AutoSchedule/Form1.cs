@@ -12,6 +12,7 @@ namespace AutoSchedule
 {
     public partial class Form1 : Form
     {
+        public string selectedPath = null;
         // Переменная для хранения выбранной аудитории по клику
         private Classroom _activeRoomForPlacement = null;
         // Переменная для "Метода 2" (Клик-Вставка)
@@ -297,7 +298,7 @@ namespace AutoSchedule
             // Если пользователь выбрал файл и нажал ОК
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                string selectedPath = openFileDialog.FileName;
+                selectedPath = openFileDialog.FileName;
 
                 // Настраиваем глобальную строку подключения
                 connectionString = $@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={selectedPath};";
@@ -576,6 +577,43 @@ namespace AutoSchedule
                 else e.PaintBackground(e.CellBounds, true);
             }
             else e.PaintBackground(e.CellBounds, !isHeaderCol);
+
+            // --- НОВОЕ: УМНАЯ ПОДСВЕТКА ДОСТУПНОСТИ ---
+            PoolItem itemToPlace = _activeCardForPlacement ?? _draggedItem;
+            if (itemToPlace != null && !isHeaderCol && e.RowIndex >= 0 && _selectedGroup != null)
+            {
+                var colGroup = dgvSchedule.Columns[e.ColumnIndex].Tag as Models.GroupList;
+                var timeInfo = dgvSchedule.Rows[e.RowIndex].Tag as Tuple<int, int, int>;
+
+                // Проверяем доступность только для колонки текущей выбранной группы
+                if (colGroup != null && timeInfo != null && colGroup.GroupId == _selectedGroup.GroupId)
+                {
+                    int day = timeInfo.Item1;
+                    int pair = timeInfo.Item2;
+                    int week = timeInfo.Item3;
+
+                    // Проверяем через ValidationService
+                    var valResult = globalValidator.Validate(itemToPlace, day, pair, week, itemToPlace.SelectedRoom);
+
+                    // Если есть накладка (занят преподаватель, аудитория или день)
+                    if (!valResult.IsValid)
+                    {
+                        // Рисуем легкую красную штриховку или заливку
+                        using (SolidBrush errorBrush = new SolidBrush(Color.FromArgb(80, 255, 100, 100)))
+                        {
+                            e.Graphics.FillRectangle(errorBrush, e.CellBounds);
+                        }
+                    }
+                    else
+                    {
+                        // Если свободно - рисуем легкую зеленую заливку
+                        using (SolidBrush okBrush = new SolidBrush(Color.FromArgb(60, 100, 255, 100)))
+                        {
+                            e.Graphics.FillRectangle(okBrush, e.CellBounds);
+                        }
+                    }
+                }
+            }
 
             // --- 2. ОТРИСОВКА ЗАПЛАНИРОВАННОГО ЗАНЯТИЯ (НОВОЕ!) ---
             if (!isHeaderCol && e.RowIndex >= 0)
@@ -1204,9 +1242,55 @@ namespace AutoSchedule
             }
         }
 
+        private void RefreshAllData()
+        {
+            // 1. Очищаем старые списки, чтобы данные не дублировались
+            classrooms.Clear();
+            groups.Clear();
+            subjects.Clear();
+            teachers.Clear();
+            academicPlans.Clear();
+            teacherDaysOff.Clear();
+            teacherRoomPrefs.Clear();
+            enrichedPlans.Clear();
+            _roomIndicators.Clear();
+
+            // 2. Вызываем твою логику загрузки из БД
+            // Убедись, что вызываешь те же методы, что и при старте программы (в Form1_Load)
+            LoadDatabaseData(selectedPath);
+            // 3. Обновляем визуальные элементы
+            PopulateAssignmentCards(); // Перерисовывает карточки слева
+            LoadAllRoomsToPanel();     // Перерисовывает кнопки аудиторий внизу
+            dgvSchedule.Invalidate();  // Перерисовывает саму шахматку
+        }
+
         private void btnHistory_Click(object sender, EventArgs e)
         {
             new FormHistory().ShowDialog();
+        }
+
+
+
+
+        private void btnDicts_Click(object sender, EventArgs e)
+        {
+            // Создаем форму справочников
+            // Передаем твою строку подключения (она у тебя объявлена в полях Form1)
+            using (FormDictionaries dictForm = new FormDictionaries(connectionString))
+            {
+                // Открываем как модальное окно
+                dictForm.ShowDialog();
+
+                // Проверяем, были ли сохранены изменения (свойство DataChanged мы добавили в FormDictionaries)
+                if (dictForm.DataChanged)
+                {
+                    // Если данные в базе изменились — вызываем полное обновление
+                    RefreshAllData();
+
+                    MessageBox.Show("Данные успешно обновлены!", "Синхронизация",
+                                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
         }
     }
 }

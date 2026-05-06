@@ -37,6 +37,7 @@
             this.lblSemesterSelect = new System.Windows.Forms.Label();
             this.lblGroupSelect = new System.Windows.Forms.Label();
             this.btnOpenDb = new System.Windows.Forms.Button();
+            this.btnDicts = new System.Windows.Forms.Button();
             this.tlpMainLayout.SuspendLayout();
             this.pnlToolbar.SuspendLayout();
             this.SuspendLayout();
@@ -99,6 +100,7 @@
             // pnlToolbar
             // 
             this.pnlToolbar.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlToolbar.Controls.Add(this.btnDicts);
             this.pnlToolbar.Controls.Add(this.btnHistory);
             this.pnlToolbar.Controls.Add(this.lblSemesterSelect);
             this.pnlToolbar.Controls.Add(this.lblGroupSelect);
@@ -151,6 +153,16 @@
             this.btnOpenDb.UseVisualStyleBackColor = true;
             this.btnOpenDb.Click += new System.EventHandler(this.btnOpenDb_Click);
             // 
+            // btnDicts
+            // 
+            this.btnDicts.Location = new System.Drawing.Point(271, 2);
+            this.btnDicts.Name = "btnDicts";
+            this.btnDicts.Size = new System.Drawing.Size(105, 23);
+            this.btnDicts.TabIndex = 4;
+            this.btnDicts.Text = "Справочники";
+            this.btnDicts.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
+            this.btnDicts.Click += new System.EventHandler(this.btnDicts_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -180,6 +192,7 @@
         private System.Windows.Forms.Label lblGroupSelect;
         private System.Windows.Forms.Label lblSemesterSelect;
         private System.Windows.Forms.Button btnHistory;
+        private System.Windows.Forms.Button btnDicts;
     }
 }
 

@@ -71,6 +71,9 @@
     <Compile Include="FormDbList.Designer.cs">
       <DependentUpon>FormDbList.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormDictionaries.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="FormHistory.cs">
       <SubType>Form</SubType>
     </Compile>
