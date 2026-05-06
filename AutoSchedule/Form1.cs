@@ -12,6 +12,10 @@ namespace AutoSchedule
 {
     public partial class Form1 : Form
     {
+        // Переменная для хранения выбранной аудитории по клику
+        private Classroom _activeRoomForPlacement = null;
+        // Переменная для "Метода 2" (Клик-Вставка)
+        private PoolItem _activeCardForPlacement = null;
         // --- ПОЛЯ ДАННЫХ ---
         string connectionString = "";
         string dbFolderPath = Path.Combine(Application.StartupPath, "Databases");
@@ -223,6 +227,53 @@ namespace AutoSchedule
                    //card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
                     card.RoomSelectionChanged += (s, room) => UpdateRoomHighlight(room);
 
+                    // --- ДОБАВИТЬ ЛОГИКУ ВЫДЕЛЕНИЯ ---
+                    // Внутри цикла foreach (var item in availableItems)
+                    card.CardClicked += (s, args) => {
+                        // 1. ЛОГИКА СБРОСА ВЫДЕЛЕНИЯ АУДИТОРИЙ (Тот самый совет)
+                        if (_activeRoomForPlacement != null)
+                        {
+                            _activeRoomForPlacement = null; // Обнуляем выбранную комнату
+
+                            // Проходим по всем кнопкам в панели аудиторий и снимаем красные рамки
+                            foreach (Control control in flpRoomIndicators.Controls)
+                            {
+                                if (control is Controls.RoomIndicatorControl indicator)
+                                {
+                                    indicator.IsSelectedForPlacement = false;
+                                    indicator.Invalidate(); // Принудительно перерисовываем, чтобы рамка исчезла
+                                }
+                            }
+                        }
+
+                        // 2. СТАНДАРТНАЯ ЛОГИКА ВЫБОРА КАРТОЧКИ (Метод 2)
+                        if (_activeCardForPlacement == card.ItemData)
+                        {
+                            // Если кликнули на уже выделенную карточку — снимаем выделение
+                            _activeCardForPlacement = null;
+                            card.IsSelectedForPlacement = false;
+                        }
+                        else
+                        {
+                            // Снимаем рамки со всех остальных карточек на панели дисциплин
+                            foreach (Control c in flpAssignments.Controls)
+                            {
+                                if (c is Controls.ScheduleCardControl otherCard)
+                                {
+                                    otherCard.IsSelectedForPlacement = false;
+                                    otherCard.Invalidate();
+                                }
+                            }
+
+                            // Выделяем текущую карточку
+                            _activeCardForPlacement = card.ItemData;
+                            _activeCardForPlacement.SelectedRoom = card.SelectedRoom; // Подхватываем выбранную на карточке комнату
+                            card.IsSelectedForPlacement = true;
+                        }
+
+                        card.Invalidate(); // Перерисовываем текущую карточку (появится/исчезнет красная рамка)
+                    };
+
                     flpAssignments.Controls.Add(card);
                 }
             }
@@ -294,6 +345,40 @@ namespace AutoSchedule
             {
                 var indicator = new Controls.RoomIndicatorControl(room, false);
                 indicator.Height = targetHeight;
+
+                // --- ДОБАВЛЯЕМ ЛОГИКУ КЛИКА ПО АУДИТОРИИ ---
+                indicator.RoomClicked += (s, args) => {
+                    // Снимаем выделение с карточек занятий (если были)
+                    if (_activeCardForPlacement != null)
+                    {
+                        _activeCardForPlacement = null;
+                        foreach (Controls.ScheduleCardControl c in flpAssignments.Controls)
+                        {
+                            c.IsSelectedForPlacement = false;
+                            c.Invalidate();
+                        }
+                    }
+
+                    // Если кликнули на уже выделенную аудиторию - снимаем выделение
+                    if (_activeRoomForPlacement == indicator.RoomData)
+                    {
+                        _activeRoomForPlacement = null;
+                        indicator.IsSelectedForPlacement = false;
+                    }
+                    else
+                    {
+                        // Снимаем выделение с других аудиторий
+                        foreach (Controls.RoomIndicatorControl ind in flpRoomIndicators.Controls)
+                        {
+                            ind.IsSelectedForPlacement = false;
+                            ind.Invalidate();
+                        }
+                        // Выделяем текущую
+                        _activeRoomForPlacement = indicator.RoomData;
+                        indicator.IsSelectedForPlacement = true;
+                    }
+                    indicator.Invalidate(); // Перерисовываем
+                };
                 _roomIndicators.Add(room.RoomID, indicator);
                 flpRoomIndicators.Controls.Add(indicator);
             }
@@ -386,6 +471,7 @@ namespace AutoSchedule
             dgvSchedule.DragEnter += DgvSchedule_DragEnter;
             dgvSchedule.DragDrop += DgvSchedule_DragDrop;
             dgvSchedule.CellMouseClick += DgvSchedule_CellMouseClick;
+            dgvSchedule.CellMouseDoubleClick += DgvSchedule_CellMouseDoubleClick;
 
             dgvSchedule.DragOver += DgvSchedule_DragOver;
             dgvSchedule.DragLeave += DgvSchedule_DragLeave;
@@ -570,6 +656,34 @@ namespace AutoSchedule
 
         private void DgvSchedule_CellMouseClick(object sender, DataGridViewCellMouseEventArgs e)
         {
+            if (e.RowIndex < 0 || e.ColumnIndex < 2) return;
+
+            // --- МЕТОД 2: ЛЕВЫЙ КЛИК (ВСТАВКА ИЛИ ЗАМЕНА АУДИТОРИИ) ---
+            if (e.Button == MouseButtons.Left)
+            {
+                // Если ставим дисциплину
+                if (_activeCardForPlacement != null)
+                {
+                    TryPlaceLesson(_activeCardForPlacement, e.RowIndex);
+                    _activeCardForPlacement = null;
+                    PopulateAssignmentCards();
+                    return;
+                }
+                // Если просто меняем аудиторию в существующей паре
+                else if (_activeRoomForPlacement != null)
+                {
+                    TryUpdateRoom(_activeRoomForPlacement, e.RowIndex, e.ColumnIndex);
+
+                    // Снимаем выделение после успешного клика
+                    _activeRoomForPlacement = null;
+                    foreach (Controls.RoomIndicatorControl ind in flpRoomIndicators.Controls)
+                    {
+                        ind.IsSelectedForPlacement = false;
+                        ind.Invalidate();
+                    }
+                    return;
+                }
+            }
             // Только правая кнопка мыши и только по учебным ячейкам (индекс >= 2)
             if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && e.ColumnIndex >= 2)
             {
@@ -1034,5 +1148,60 @@ namespace AutoSchedule
             catch { }
         }
 
+        private void DgvSchedule_CellMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 2) return;
+            if (e.Button != MouseButtons.Left) return;
+
+            var colGroup = dgvSchedule.Columns[e.ColumnIndex].Tag as Models.GroupList;
+            var timeInfo = dgvSchedule.Rows[e.RowIndex].Tag as Tuple<int, int, int>;
+
+            if (colGroup != null && timeInfo != null)
+            {
+                // 1. Блокируем вызов, если ячейка уже занята
+                var lesson = schedules.FirstOrDefault(s =>
+                    s.GroupId == colGroup.GroupId &&
+                    s.DayOfWeek == timeInfo.Item1 &&
+                    s.LessonNumber == timeInfo.Item2 &&
+                    s.WeekType == timeInfo.Item3);
+
+                if (lesson != null)
+                {
+                    MessageBox.Show("«Эта ячейка уже занята. Сначала удалите текущее занятие правым кликом.»", "Внимание", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                // 2. Достаем все карточки конкретно для этой группы
+                var groupPool = globalPool.GetAllItems()
+                    .Where(i => i.PlanReference.Group.GroupId == colGroup.GroupId)
+                    .ToList();
+
+                if (groupPool.Count == 0) return;
+
+                // 3. Открываем наше новое окно ручного ввода
+                using (FormManualEntry form = new FormManualEntry(colGroup, timeInfo.Item1, timeInfo.Item2, timeInfo.Item3, groupPool, teachers, classrooms))
+                {
+                    if (form.ShowDialog() == DialogResult.OK)
+                    {
+                        var selectedItem = form.SelectedItem;
+
+                        // Запоминаем оригинальные настройки пула, чтобы не сломать карточку навсегда
+                        var originalTeacher = selectedItem.AssignedTeacher;
+                        var originalRoom = selectedItem.SelectedRoom;
+
+                        // Применяем то, что пользователь выбрал в выпадающих списках формы
+                        selectedItem.AssignedTeacher = form.SelectedTeacher;
+                        selectedItem.SelectedRoom = form.SelectedRoom;
+
+                        // Ставим пару через наш основной надежный метод!
+                        TryPlaceLesson(selectedItem, e.RowIndex);
+
+                        // Возвращаем пулу исходного преподавателя (чтобы следующая пара по умолчанию была правильной)
+                        selectedItem.AssignedTeacher = originalTeacher;
+                        selectedItem.SelectedRoom = originalRoom;
+                    }
+                }
+            }
+        }
     }
 }

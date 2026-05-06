@@ -8,6 +8,15 @@ namespace AutoSchedule.Controls
 {
     public partial class RoomIndicatorControl : UserControl
     {
+        // Событие обычного клика по кнопке аудитории
+        public event EventHandler RoomClicked;
+
+        // Флаг выделения для "Метода 2"
+        public bool IsSelectedForPlacement { get; set; } = false;
+
+        // Точка клика
+        private Point _mouseDownLocation;
+
         public Classroom RoomData { get; private set; }
         private bool _isHighlighted = false;
         private bool _isPriority = false;
@@ -24,11 +33,30 @@ namespace AutoSchedule.Controls
             this.BackColor = Color.Transparent;
             this.Margin = new Padding(4, 5, 4, 5);
 
+            // Запоминаем точку клика
             this.MouseDown += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    _mouseDownLocation = e.Location;
+                }
+            };
+
+            // Если потянули мышь - начинаем Drag and Drop
+            this.MouseMove += (s, e) => {
                 if (e.Button == MouseButtons.Left && RoomData != null)
                 {
-                    // Начинаем перетаскивание (Link - чтобы курсор отличался от перемещения карточки)
-                    this.DoDragDrop(this.RoomData, DragDropEffects.Link);
+                    if (Math.Abs(e.X - _mouseDownLocation.X) > 3 || Math.Abs(e.Y - _mouseDownLocation.Y) > 3)
+                    {
+                        this.DoDragDrop(this.RoomData, DragDropEffects.Link);
+                    }
+                }
+            };
+
+            // Если просто кликнули - вызываем событие
+            this.MouseClick += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    RoomClicked?.Invoke(this, EventArgs.Empty);
                 }
             };
         }
@@ -60,6 +88,14 @@ namespace AutoSchedule.Controls
             using (SolidBrush bgBrush = new SolidBrush(bgColor))
             {
                 e.Graphics.FillPath(bgBrush, path);
+            }
+            // --- ДОБАВИТЬ В КОНЕЦ МЕТОДА OnPaint ---
+            if (IsSelectedForPlacement)
+            {
+                using (Pen selectedPen = new Pen(Color.Red, 3))
+                {
+                    e.Graphics.DrawRectangle(selectedPen, 1, 1, this.Width - 2, this.Height - 2);
+                }
             }
 
             // РАМКА

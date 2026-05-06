@@ -71,6 +71,9 @@
     <Compile Include="FormDbList.Designer.cs">
       <DependentUpon>FormDbList.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormManualEntry.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Models\AcademicPlan.cs" />
     <Compile Include="Models\Classroom.cs" />
     <Compile Include="Models\EnrichedAcademicPlan.cs" />
@@ -100,6 +103,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="FormDbList.resx">
       <DependentUpon>FormDbList.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormManualEntry.resx">
+      <DependentUpon>FormManualEntry.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

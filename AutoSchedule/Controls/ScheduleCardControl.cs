@@ -11,6 +11,14 @@ namespace AutoSchedule.Controls
 {
     public partial class ScheduleCardControl : UserControl
     {
+        // Событие обычного клика по карточке
+        public event EventHandler CardClicked;
+
+        // Флаг выделения для "Метода 2"
+        public bool IsSelectedForPlacement { get; set; } = false;
+
+        // Точка клика для отличия клика от перетаскивания
+        private Point _mouseDownLocation;
         public PoolItem ItemData { get; private set; }
 
         private List<Classroom> _availableRooms = new List<Classroom>();
@@ -59,13 +67,31 @@ namespace AutoSchedule.Controls
             this.MouseWheel += ScheduleCardControl_MouseWheel;
 
             // --- ДОПИСАТЬ В КОНЕЦ КОНСТРУКТОРА ---
+            // Запоминаем, где нажали
             this.MouseDown += (s, e) => {
                 if (e.Button == MouseButtons.Left)
                 {
-                    // Сохраняем текущую выбранную аудиторию в PoolItem перед броском
-                    this.ItemData.SelectedRoom = this.SelectedRoom;
-                    // Начинаем перетаскивание
-                    this.DoDragDrop(this.ItemData, DragDropEffects.Move);
+                    _mouseDownLocation = e.Location;
+                }
+            };
+
+            // Если зажали и потянули мышь (больше чем на 3 пикселя) — это перетаскивание
+            this.MouseMove += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    if (Math.Abs(e.X - _mouseDownLocation.X) > 3 || Math.Abs(e.Y - _mouseDownLocation.Y) > 3)
+                    {
+                        this.ItemData.SelectedRoom = this.SelectedRoom;
+                        this.DoDragDrop(this.ItemData, DragDropEffects.Move);
+                    }
+                }
+            };
+
+            // Если просто кликнули и отпустили — это выделение
+            this.MouseClick += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    CardClicked?.Invoke(this, EventArgs.Empty);
                 }
             };
         }
@@ -225,6 +251,22 @@ namespace AutoSchedule.Controls
                     e.Graphics.DrawRectangle(hoverPen, 1, 1, this.Width - 2, this.Height - 2);
                 }
             }
+
+            // --- ДОБАВИТЬ ЭТО В КОНЕЦ МЕТОДА OnPaint ---
+            if (IsSelectedForPlacement)
+            {
+                using (Pen selectedPen = new Pen(Color.Red, 3))
+                {
+                    e.Graphics.DrawRectangle(selectedPen, 1, 1, this.Width - 2, this.Height - 2);
+                }
+            }
+            else if (_isHovered)
+            {
+                using (Pen hoverPen = new Pen(Color.FromArgb(180, Color.White), 2))
+                {
+                    e.Graphics.DrawRectangle(hoverPen, 1, 1, this.Width - 2, this.Height - 2);
+                }
+            }
         }
 
         // --- МАГИЯ ИСПРАВЛЕНИЯ БАГА С ПРЫЖКОМ И ИСЧЕЗНОВЕНИЕМ СКРОЛЛА ---
@@ -258,6 +300,11 @@ namespace AutoSchedule.Controls
             this.FindForm()?.Focus();
 
             this.Invalidate();
+        }
+
+        private void ScheduleCardControl_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }
