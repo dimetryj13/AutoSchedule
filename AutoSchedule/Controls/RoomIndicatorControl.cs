@@ -25,9 +25,10 @@ namespace AutoSchedule.Controls
             this.Margin = new Padding(4, 5, 4, 5);
 
             this.MouseDown += (s, e) => {
-                if (e.Button == MouseButtons.Left)
+                if (e.Button == MouseButtons.Left && RoomData != null)
                 {
-                    this.DoDragDrop(this.RoomData, DragDropEffects.Link); // Используем Link для отличия от Move
+                    // Начинаем перетаскивание (Link - чтобы курсор отличался от перемещения карточки)
+                    this.DoDragDrop(this.RoomData, DragDropEffects.Link);
                 }
             };
         }

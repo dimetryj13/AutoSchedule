@@ -18,6 +18,7 @@ namespace AutoSchedule
 
         // Переменные для визуального Drag and Drop
         private PoolItem _draggedItem = null;
+        private Classroom _draggedRoom = null;
         private Point _dragPosition = Point.Empty;
 
         // Хранилища данных
@@ -144,6 +145,7 @@ namespace AutoSchedule
 
             if (_selectedGroup == null || _selectedSemester == 0)
             {
+                flpRoomIndicators.Visible = false;
                 string hint = _selectedGroup == null ? "группу" : "семестр";
                 Label lblPlaceholder = new Label
                 {
@@ -158,6 +160,8 @@ namespace AutoSchedule
                 flpAssignments.Visible = true;
                 return;
             }
+
+
 
             // ПРОВЕРКА: Выбраны ли оба параметра?
             if (_selectedGroup == null || _selectedSemester == 0)
@@ -175,6 +179,12 @@ namespace AutoSchedule
                 flpAssignments.Visible = true;
                 return;
             }
+
+            // ЕСЛИ ГРУППА ВЫБРАНА
+            flpRoomIndicators.Visible = true; // <--- ПОКАЗЫВАЕМ ПАНЕЛЬ АУДИТОРИЙ
+
+            // Если кнопки еще не загружены - загружаем
+            if (_roomIndicators.Count == 0) LoadAllRoomsToPanel();
 
             if (globalPool == null) return;
             var allItems = globalPool.GetAvailableItems();
@@ -210,7 +220,7 @@ namespace AutoSchedule
 
                     card.LoadRooms(classrooms, priorityRoomIds);
                     card.MouseEnter += (s, e) => { ShowRoomsForCard(card); };
-                    card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
+                   //card.MouseLeave += (s, e) => { ClearRoomIndicators(); };
                     card.RoomSelectionChanged += (s, room) => UpdateRoomHighlight(room);
 
                     flpAssignments.Controls.Add(card);
@@ -249,45 +259,47 @@ namespace AutoSchedule
         // Показывает индикаторы только для наведенной карточки
         private void ShowRoomsForCard(Controls.ScheduleCardControl card)
         {
+            // 1. Сначала гасим подсветку со ВСЕХ аудиторий
+            foreach (var indicator in _roomIndicators.Values)
+                indicator.Highlight(false);
+
+            // 2. Включаем рамки только для тех аудиторий, которые в приоритете у этой карточки
+            foreach (var room in card.AvailableRooms)
+            {
+                if (card.PriorityRoomIds.Contains(room.RoomID) && _roomIndicators.ContainsKey(room.RoomID))
+                {
+                    _roomIndicators[room.RoomID].Highlight(true);
+                }
+            }
+
+            // 3. Если у карточки уже выбрана какая-то конкретная аудитория - скроллим к ней
+            var selected = card.SelectedRoom;
+            if (selected != null && _roomIndicators.ContainsKey(selected.RoomID))
+            {
+                _roomIndicators[selected.RoomID].Highlight(true);
+                flpRoomIndicators.ScrollControlIntoView(_roomIndicators[selected.RoomID]);
+            }
+        }
+        // НОВЫЙ МЕТОД: Загружает все комнаты в панель один раз
+        private void LoadAllRoomsToPanel()
+        {
             flpRoomIndicators.SuspendLayout();
             flpRoomIndicators.Controls.Clear();
             _roomIndicators.Clear();
 
-            flpRoomIndicators.WrapContents = false;
+            int targetHeight = Math.Max(25, flpRoomIndicators.Height - SystemInformation.HorizontalScrollBarHeight - 15);
 
-            // --- УМНАЯ ВЫСОТА КНОПОК ---
-            // Узнаем стандартную высоту горизонтального ползунка в Windows (обычно около 17px)
-            int scrollBarHeight = SystemInformation.HorizontalScrollBarHeight;
-
-            // Вычисляем идеальную высоту: Высота панели минус скроллбар минус отступы сверху/снизу (около 15px)
-            int targetHeight = flpRoomIndicators.Height - scrollBarHeight - 15;
-
-            // Защита: если панель слишком сильно сплющили, задаем минимальную высоту, чтобы текст не исчез
-            if (targetHeight < 25) targetHeight = 25;
-
-            foreach (var room in card.AvailableRooms)
+            // Загружаем все аудитории по порядку
+            foreach (var room in classrooms.OrderBy(r => r.RoomNumber))
             {
-                bool isPriority = card.PriorityRoomIds.Contains(room.RoomID);
-                var indicator = new Controls.RoomIndicatorControl(room, isPriority);
-
-                // Применяем вычисленную высоту к кнопке!
+                var indicator = new Controls.RoomIndicatorControl(room, false);
                 indicator.Height = targetHeight;
-
                 _roomIndicators.Add(room.RoomID, indicator);
                 flpRoomIndicators.Controls.Add(indicator);
             }
-
-            var selected = card.SelectedRoom;
-            if (selected != null && _roomIndicators.ContainsKey(selected.RoomID))
-            {
-                var activeIndicator = _roomIndicators[selected.RoomID];
-                activeIndicator.Highlight(true);
-                flpRoomIndicators.ScrollControlIntoView(activeIndicator);
-            }
-
             flpRoomIndicators.ResumeLayout();
         }
-        // Очищает панель
+
         private void ClearRoomIndicators()
         {
             flpRoomIndicators.Controls.Clear();
@@ -658,22 +670,42 @@ namespace AutoSchedule
                 }
             }
 
-            // --- ОТРИСОВКА ПОДСКАЗКИ ПРИ ПЕРЕТАСКИВАНИИ ---
-            if (_draggedItem != null)
+            // --- ОТРИСОВКА ЦВЕТНОЙ ПОДСКАЗКИ ПРИ ПЕРЕТАСКИВАНИИ ---
+            if (_draggedItem != null || _draggedRoom != null)
             {
-                string dragText = $"{_draggedItem.DisplayName}\n{_draggedItem.AssignedTeacher?.FullName}";
+                string dragText = "";
+                Color bgColor = Color.White;
+                int rectHeight = 45;
 
-                // Создаем прямоугольник чуть правее и ниже курсора мыши
-                Rectangle dragRect = new Rectangle(_dragPosition.X + 15, _dragPosition.Y + 15, 180, 45);
+                // Если тащим занятие (Определяем цвет)
+                if (_draggedItem != null)
+                {
+                    dragText = $"{_draggedItem.DisplayName}\n{_draggedItem.AssignedTeacher?.FullName}";
+                    switch (_draggedItem.LessonType)
+                    {
+                        case 0: bgColor = Color.LightGreen; break;
+                        case 1: bgColor = Color.LightSkyBlue; break;
+                        case 2: bgColor = Color.LightCoral; break;
+                        default: bgColor = Color.LightGray; break;
+                    }
+                }
+                // Если тащим аудиторию
+                else if (_draggedRoom != null)
+                {
+                    dragText = $"Ауд. {_draggedRoom.RoomNumber}";
+                    bgColor = Color.FromArgb(240, 240, 240); // Серый цвет кнопок
+                    rectHeight = 30; // Плашка поменьше
+                }
 
-                // Рисуем полупрозрачный желтоватый фон (как стикер)
-                using (SolidBrush dragBrush = new SolidBrush(Color.FromArgb(220, 255, 255, 200)))
+                Rectangle dragRect = new Rectangle(_dragPosition.X + 15, _dragPosition.Y + 15, 180, rectHeight);
+
+                // Делаем цвет слегка прозрачным (Альфа-канал 210)
+                using (SolidBrush dragBrush = new SolidBrush(Color.FromArgb(210, bgColor.R, bgColor.G, bgColor.B)))
                 {
                     e.Graphics.FillRectangle(dragBrush, dragRect);
                 }
-                e.Graphics.DrawRectangle(Pens.Orange, dragRect);
+                e.Graphics.DrawRectangle(Pens.Gray, dragRect);
 
-                // Пишем текст
                 TextRenderer.DrawText(e.Graphics, dragText, new Font("Segoe UI", 8, FontStyle.Bold), dragRect, Color.Black,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
             }
@@ -840,54 +872,50 @@ namespace AutoSchedule
 
         private void DgvSchedule_DragEnter(object sender, DragEventArgs e)
         {
-            // Разрешаем, если это карточка (PoolItem) ИЛИ аудитория (Classroom)
-            if ((e.Data.GetDataPresent(typeof(PoolItem)) || e.Data.GetDataPresent(typeof(Classroom))) && _selectedGroup != null)
-                e.Effect = (e.Data.GetDataPresent(typeof(Classroom))) ? DragDropEffects.Link : DragDropEffects.Move;
-            else
-                e.Effect = DragDropEffects.None;
-        }
+            if (_selectedGroup == null) { e.Effect = DragDropEffects.None; return; }
 
+            if (e.Data.GetDataPresent(typeof(PoolItem)))
+            {
+                e.Effect = DragDropEffects.Move;
+                _draggedItem = e.Data.GetData(typeof(PoolItem)) as PoolItem;
+                _draggedRoom = null;
+            }
+            else if (e.Data.GetDataPresent(typeof(Classroom)))
+            {
+                e.Effect = DragDropEffects.Link;
+                _draggedRoom = e.Data.GetData(typeof(Classroom)) as Classroom;
+                _draggedItem = null;
+            }
+            else e.Effect = DragDropEffects.None;
+        }
         private void DgvSchedule_DragDrop(object sender, DragEventArgs e)
         {
+            // СБРОС визуальных подсказок
+            _draggedItem = null;
+            _draggedRoom = null;
+
             Point clientPoint = dgvSchedule.PointToClient(new Point(e.X, e.Y));
             var hit = dgvSchedule.HitTest(clientPoint.X, clientPoint.Y);
             if (hit.RowIndex < 0) return;
 
-            // СЛУЧАЙ А: Бросили новую карточку
             if (e.Data.GetData(typeof(PoolItem)) is PoolItem draggedItem)
-            {
                 TryPlaceLesson(draggedItem, hit.RowIndex);
-            }
-            // СЛУЧАЙ Б: Бросили аудиторию на существующий предмет
             else if (e.Data.GetData(typeof(Classroom)) is Classroom droppedRoom)
-            {
                 TryUpdateRoom(droppedRoom, hit.RowIndex, hit.ColumnIndex);
-            }
+
+            dgvSchedule.Invalidate();
         }
-        // НОВЫЙ МЕТОД: Отслеживает движение мыши над таблицей
-
-
-
-        private void DgvSchedule_DragOver(object sender, DragEventArgs e)
-        {
-            if (_draggedItem != null)
-            {
-                // Конвертируем координаты экрана в координаты таблицы
-                _dragPosition = dgvSchedule.PointToClient(new Point(e.X, e.Y));
-                dgvSchedule.Invalidate(); // Принудительно заставляем перерисовать кадр
-            }
-        }
-
-        // Новый метод для быстрой смены аудитории
+        // НОВЫЙ МЕТОД: Замена только аудитории в ячейке
         private void TryUpdateRoom(Classroom room, int rowIndex, int colIndex)
         {
-            if (colIndex < 2) return;
+            if (colIndex < 2) return; // Игнорируем клики по дням и парам
 
             var colGroup = dgvSchedule.Columns[colIndex].Tag as Models.GroupList;
             var timeInfo = dgvSchedule.Rows[rowIndex].Tag as Tuple<int, int, int>;
 
             if (colGroup != null && timeInfo != null)
             {
+                // Ищем занятие в расписании
                 var lesson = schedules.FirstOrDefault(s =>
                     s.GroupId == colGroup.GroupId &&
                     s.DayOfWeek == timeInfo.Item1 &&
@@ -896,12 +924,22 @@ namespace AutoSchedule
 
                 if (lesson != null)
                 {
-                    lesson.RoomID = room.RoomID; // Просто меняем ID комнаты
+                    lesson.RoomID = room.RoomID; // Просто перезаписываем ID комнаты
                     LogAction("Смена ауд.", $"{room.RoomNumber}", $"{timeInfo.Item1} день, {timeInfo.Item2} пара");
-                    dgvSchedule.Invalidate();
+                    dgvSchedule.Invalidate(); // Перерисовываем графику
                 }
             }
         }
+        private void DgvSchedule_DragOver(object sender, DragEventArgs e)
+        {
+            // Работает, если тащим либо предмет, либо аудиторию
+            if (_draggedItem != null || _draggedRoom != null)
+            {
+                _dragPosition = dgvSchedule.PointToClient(new Point(e.X, e.Y));
+                dgvSchedule.Invalidate();
+            }
+        }
+        // Новый метод для быстрой смены аудитории
 
 
 
@@ -909,6 +947,7 @@ namespace AutoSchedule
         private void DgvSchedule_DragLeave(object sender, EventArgs e)
         {
             _draggedItem = null;
+            _draggedRoom = null;
             dgvSchedule.Invalidate();
         }
         private void TryPlaceLesson(PoolItem item, int rowIndex)
